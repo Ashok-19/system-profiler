@@ -69,9 +69,11 @@ Support for Thermal Design Power (TDP) is tied to the new `asus-armoury` driver:
 ### Display server support (X11)
 
 > [!NOTE]
-> X11 is officially unsupported. Technical assistance is not provided for X11 environments due to developer resource constraints and the unmaintained status of X11 itself.
+> **Fork:** the GUI is built with X11 support by default (the `x11` feature of
+> `rog-control-center`), alongside Wayland. This fork is developed and tested on
+> XFCE/X11.
 >
-> Users who require X11 integration may compile the GUI application with X11 support enabled using `cargo build --features "rog-control-center/x11"`. Operation on unmaintained display servers remains the responsibility of the user.
+> Upstream considers X11 unsupported. Technical assistance is not provided upstream for X11 environments due to developer resource constraints and the unmaintained status of X11 itself.
 
 ## Implemented features
 
@@ -171,13 +173,25 @@ make
 sudo make install
 ```
 
-#### Ubuntu and Pop!_OS (Unsupported)
+#### Ubuntu 24.04 (supported by this fork)
+
+Tested on Ubuntu 24.04 LTS (kernel 6.8, XFCE on X11). The toolchain pinned in
+`rust-toolchain.toml` is installed automatically by [rustup](https://rustup.rs/);
+Ubuntu's `cargo`/`rustc` packages are too old.
 
 ```sh
-sudo apt install make cargo gcc pkg-config openssl libasound2-dev cmake build-essential python3 libfreetype6-dev libexpat1-dev libxcb-composite0-dev libssl-dev libx11-dev libfontconfig1-dev curl libclang-dev libudev-dev checkinstall libseat-dev libinput-dev libxkbcommon-dev libgbm-dev
+sudo apt install build-essential cmake pkg-config libclang-dev libudev-dev \
+    libfontconfig1-dev libfreetype-dev libexpat1-dev libxkbcommon-dev \
+    libxkbcommon-x11-dev libwayland-dev libssl-dev libzstd-dev
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 make
 sudo make install
 ```
+
+`libsdl2-dev` is only needed to build the AniMe Matrix simulator
+(`cargo build -p rog_simulators`), which is not part of `make`.
+
+Pop!_OS is based on Ubuntu and should work the same way, but is not tested.
 
 ### Upgrading
 
