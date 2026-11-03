@@ -1,0 +1,416 @@
+import { Theme } from "../theme.slint";
+import { Icon, Icons } from "../icons.slint";
+
+// Three slanted bars: the section marker.
+export component Stripes inherits Path {
+    in property <brush> color: Theme.accent;
+    width: 30px;
+    height: 11px;
+    viewbox-width: 30;
+    viewbox-height: 11;
+    commands: "M4 0 L8 0 L4 11 L0 11 Z M12 0 L16 0 L12 11 L8 11 Z M20 0 L24 0 L20 11 L16 11 Z M28 0 L30 0 L30 5.5 L28 11 L24 11 Z";
+    fill: color;
+    stroke-width: 0px;
+}
+
+// "▰▰▰ Title" heading used above every section.
+export component SectionHeader inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> hint;
+    spacing: 12px;
+    alignment: start;
+    VerticalLayout {
+        alignment: center;
+        Stripes { }
+    }
+
+    Text {
+        text: root.title;
+        font-size: 15px;
+        font-weight: 600;
+        color: Theme.text-strong;
+        vertical-alignment: center;
+        accessible-role: text;
+    }
+
+    if root.hint != "": Text {
+        text: root.hint;
+        font-size: 13px;
+        color: Theme.text-faint;
+        vertical-alignment: center;
+    }
+}
+
+// Sidebar entry.
+export component NavItem inherits Rectangle {
+    in property <string> label;
+    in property <string> icon;
+    in property <bool> active;
+    in property <bool> compact;
+    callback clicked;
+
+    height: 44px;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.clicked(); }
+
+    background: root.active
+        ? @linear-gradient(90deg, Theme.accent.with-alpha(0.6 * Theme.glow) 0%, Theme.accent.with-alpha(0.14 * Theme.glow) 70%, Theme.accent.with-alpha(0) 100%)
+        : touch.has-hover ? Theme.row : transparent;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    Rectangle {
+        x: 0;
+        width: 3px;
+        background: root.active ? Theme.accent : transparent;
+    }
+
+    HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 12px;
+        spacing: 14px;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                data: root.icon;
+                color: root.active ? Theme.text-strong : #e2e2e2;
+            }
+        }
+
+        if !root.compact: Text {
+            text: root.label;
+            font-size: 15px;
+            color: root.active ? Theme.text-strong : #e2e2e2;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+// Group caption in the sidebar ("Device", "Playground", ...).
+export component NavGroup inherits Rectangle {
+    in property <string> text;
+    height: 34px;
+    Text {
+        x: 20px;
+        y: parent.height - self.height - 4px;
+        text: root.text;
+        font-size: 13px;
+        color: Theme.text-faint;
+    }
+}
+
+// Icon-over-label tab with an accent underline and glow when selected.
+export component ModeTab inherits Rectangle {
+    in property <string> label;
+    in property <string> icon;
+    in property <bool> selected;
+    in property <bool> enabled: true;
+    in property <length> icon-size: 28px;
+    callback clicked;
+
+    min-height: 84px;
+    // Equal widths regardless of label length.
+    min-width: 0px;
+    preferred-width: 1px;
+    horizontal-stretch: 1;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-checked: root.selected;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+
+    background: root.selected
+        ? @linear-gradient(0deg, Theme.accent.with-alpha(0.4 * Theme.glow) 0%, Theme.accent.with-alpha(0) 80%)
+        : (touch.has-hover && root.enabled) ? @linear-gradient(0deg, Theme.accent.with-alpha(0.16) 0%, Theme.accent.with-alpha(0) 70%) : transparent;
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+
+    VerticalLayout {
+        padding-top: 14px;
+        padding-bottom: 12px;
+        spacing: 10px;
+        alignment: center;
+        HorizontalLayout {
+            alignment: center;
+            Icon {
+                data: root.icon;
+                size: root.icon-size;
+                color: !root.enabled ? #5e5e5e : root.selected ? Theme.text-strong : Theme.text-muted;
+                stroke-width: 1.4px;
+            }
+        }
+
+        Text {
+            text: root.label;
+            horizontal-alignment: center;
+            font-size: 15px;
+            font-weight: root.selected ? 600 : 400;
+            color: !root.enabled ? #5e5e5e : root.selected ? Theme.text-strong : Theme.text-muted;
+        }
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        height: 3px;
+        background: root.selected ? Theme.accent : transparent;
+    }
+}
+
+// Label/value line with a thick accent bar riding on a hairline.
+export component MetricBar inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <float> percent;
+    spacing: 6px;
+    padding-bottom: 6px;
+    HorizontalLayout {
+        Text {
+            text: root.label;
+            font-size: 13px;
+            color: #e2e2e2;
+        }
+
+        Text {
+            text: root.value;
+            font-size: 13px;
+            color: Theme.text-strong;
+            horizontal-alignment: right;
+        }
+    }
+
+    track := Rectangle {
+        height: 4px;
+        Rectangle {
+            y: parent.height - 1px;
+            height: 1px;
+            background: Theme.line;
+        }
+
+        Rectangle {
+            x: 0;
+            width: track.width * clamp(root.percent, 1, 100) / 100;
+            background: @linear-gradient(90deg, Theme.accent-dark 0%, Theme.accent 100%);
+        }
+    }
+}
+
+// Plain "key ........ value" line.
+export component KeyValue inherits HorizontalLayout {
+    in property <string> key;
+    in property <string> value;
+    in property <length> font-size: 13px;
+    Text {
+        text: root.key;
+        font-size: root.font-size;
+        color: Theme.text-muted;
+    }
+
+    Text {
+        text: root.value;
+        font-size: root.font-size;
+        color: #e8e8e8;
+        horizontal-alignment: right;
+    }
+}
+
+// Rectangular dropdown in the outlined Armoury style.
+export component Select inherits Rectangle {
+    in property <[string]> options;
+    in property <int> current-index;
+    // Shown when `current-index` is out of range (e.g. a custom value).
+    in property <string> placeholder;
+    callback selected(int);
+
+    width: 180px;
+    height: 34px;
+    background: Theme.control-bg;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.text-strong : Theme.control-border;
+    border-radius: Theme.radius;
+    accessible-role: combobox;
+    accessible-value: label.text;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { popup.show(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 8px;
+        spacing: 6px;
+        label := Text {
+            text: root.current-index >= 0 && root.current-index < root.options.length ? root.options[root.current-index] : root.placeholder;
+            font-size: 14px;
+            color: Theme.text;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                data: Icons.chevron-down;
+                size: 16px;
+                color: Theme.text-muted;
+            }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: root.height;
+        width: root.width;
+        Rectangle {
+            background: #151515;
+            border-width: 1px;
+            border-color: Theme.control-border;
+            VerticalLayout {
+                padding: 1px;
+                for option[index] in root.options: Rectangle {
+                    height: 34px;
+                    background: index == root.current-index ? Theme.accent.with-alpha(0.25) : item-touch.has-hover ? Theme.row : transparent;
+                    item-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.selected(index); }
+                    }
+
+                    Text {
+                        x: 10px;
+                        text: option;
+                        font-size: 14px;
+                        color: Theme.text;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Row used in settings lists: label on the left, a control on the right.
+export component SettingRow inherits Rectangle {
+    in property <string> label;
+    in property <string> sub;
+    in property <bool> shaded;
+    in property <bool> dimmed;
+    min-height: Theme.row-height;
+    background: root.shaded ? Theme.row : transparent;
+    opacity: root.dimmed ? 0.55 : 1;
+    HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        spacing: 18px;
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            Text {
+                text: root.label;
+                font-size: 15px;
+                color: root.dimmed ? Theme.text-dim : Theme.text;
+                wrap: word-wrap;
+            }
+
+            if root.sub != "": Text {
+                text: root.sub;
+                font-size: 12px;
+                color: Theme.text-dim;
+                wrap: word-wrap;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            @children
+        }
+    }
+}
+
+// Rectangular ON/OFF switch.
+export component Switch inherits Rectangle {
+    in-out property <bool> checked;
+    in property <string> label;
+    callback toggled(bool);
+
+    width: 58px;
+    height: 26px;
+    background: Theme.control-bg;
+    border-width: 1px;
+    border-color: root.checked ? Theme.text : #6a6a6a;
+    border-radius: Theme.radius;
+    accessible-role: switch;
+    accessible-label: root.label;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.checked = !root.checked; root.toggled(root.checked); }
+
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
+    }
+
+    Text {
+        x: root.checked ? 7px : parent.width - self.width - 6px;
+        text: root.checked ? "ON" : "OFF";
+        font-size: 11px;
+        font-weight: 700;
+        color: root.checked ? Theme.text : Theme.text-faint;
+        vertical-alignment: center;
+        height: parent.height;
+    }
+
+    Rectangle {
+        x: root.checked ? 34px : 3px;
+        y: 3px;
+        width: 20px;
+        height: parent.height - 6px;
+        border-radius: Theme.radius / 2;
+        background: root.checked ? Theme.accent : #6a6a6a;
+        animate x { duration: 150ms; }
+    }
+}
+
+// Outlined rectangular button.
+export component OutlineButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary;
+    callback clicked;
+
+    min-width: 124px;
+    height: 40px;
+    border-radius: Theme.radius;
+    border-width: root.primary ? 0px : 1px;
+    border-color: touch.has-hover ? Theme.text-strong : Theme.control-border;
+    background: root.primary ? @linear-gradient(180deg, Theme.accent 0%, Theme.accent-dark 100%) : #151515;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => { root.clicked(); }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        Text {
+            text: root.text;
+            font-size: 14px;
+            font-weight: root.primary ? 700 : 400;
+            color: root.primary ? #120c02 : (touch.has-hover ? Theme.text-strong : #e6e6e6);
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}

@@ -1,0 +1,328 @@
+import "../fonts/OpenSans-Light.ttf";
+import "../fonts/OpenSans-Regular.ttf";
+import "../fonts/OpenSans-SemiBold.ttf";
+import "../fonts/OpenSans-Bold.ttf";
+import "../fonts/Michroma-Regular.ttf";
+
+import { Theme } from "theme.slint";
+import { Icons, Icon } from "icons.slint";
+import { Live, Machine, Device } from "state.slint";
+import { NavItem, NavGroup } from "widgets/common.slint";
+import { HomePage } from "pages/home.slint";
+import { PlaceholderPage } from "pages/placeholder.slint";
+
+export { Theme, Live, Machine, Device }
+
+export enum Page {
+    home,
+    operating-mode,
+    gpu-mode,
+    battery-care,
+    display,
+    keyboard-lighting,
+    scenario-profiles,
+    system-monitor,
+    system-information,
+    personalization,
+    settings,
+}
+
+component Sidebar inherits Rectangle {
+    in-out property <Page> page;
+    in property <bool> compact;
+    background: Theme.side;
+
+    VerticalLayout {
+        padding-top: 10px;
+        padding-bottom: 14px;
+        alignment: start;
+
+        HorizontalLayout {
+            height: 48px;
+            padding-left: 20px;
+            spacing: 10px;
+            VerticalLayout {
+                alignment: center;
+                Path {
+                    width: 24px;
+                    height: 24px;
+                    viewbox-width: 32;
+                    viewbox-height: 32;
+                    commands: "M4 22 L11 14 L16 19 L22 10 L28 17 M4 27 L28 27";
+                    stroke: Theme.accent;
+                    stroke-width: 2.6px;
+                    fill: transparent;
+                }
+            }
+
+            if !root.compact: Text {
+                text: "System Profiler";
+                font-size: 14px;
+                color: #d8d8d8;
+                vertical-alignment: center;
+            }
+        }
+
+        NavItem {
+            label: "Home";
+            icon: Icons.home;
+            compact: root.compact;
+            active: root.page == Page.home;
+            clicked => { root.page = Page.home; }
+        }
+
+        if !root.compact: NavGroup { text: "Device"; }
+        NavItem {
+            label: "Operating Mode";
+            icon: Icons.mode;
+            compact: root.compact;
+            active: root.page == Page.operating-mode;
+            clicked => { root.page = Page.operating-mode; }
+        }
+
+        NavItem {
+            label: "GPU Mode";
+            icon: Icons.gpu;
+            compact: root.compact;
+            active: root.page == Page.gpu-mode;
+            clicked => { root.page = Page.gpu-mode; }
+        }
+
+        NavItem {
+            label: "Battery Care";
+            icon: Icons.battery;
+            compact: root.compact;
+            active: root.page == Page.battery-care;
+            clicked => { root.page = Page.battery-care; }
+        }
+
+        NavItem {
+            label: "Display";
+            icon: Icons.display;
+            compact: root.compact;
+            active: root.page == Page.display;
+            clicked => { root.page = Page.display; }
+        }
+
+        if !root.compact: NavGroup { text: "Playground"; }
+        NavItem {
+            label: "Keyboard Lighting";
+            icon: Icons.light;
+            compact: root.compact;
+            active: root.page == Page.keyboard-lighting;
+            clicked => { root.page = Page.keyboard-lighting; }
+        }
+
+        NavItem {
+            label: "Scenario Profiles";
+            icon: Icons.profiles;
+            compact: root.compact;
+            active: root.page == Page.scenario-profiles;
+            clicked => { root.page = Page.scenario-profiles; }
+        }
+
+        if !root.compact: NavGroup { text: "Assistants"; }
+        NavItem {
+            label: "System Monitor";
+            icon: Icons.monitor;
+            compact: root.compact;
+            active: root.page == Page.system-monitor;
+            clicked => { root.page = Page.system-monitor; }
+        }
+
+        NavItem {
+            label: "System Information";
+            icon: Icons.info;
+            compact: root.compact;
+            active: root.page == Page.system-information;
+            clicked => { root.page = Page.system-information; }
+        }
+
+        Rectangle {
+            height: 25px;
+            Rectangle {
+                x: 16px;
+                width: parent.width - 32px;
+                height: 1px;
+                background: #3a3a3a;
+            }
+        }
+
+        NavItem {
+            label: "Personalization";
+            icon: Icons.theme;
+            compact: root.compact;
+            active: root.page == Page.personalization;
+            clicked => { root.page = Page.personalization; }
+        }
+
+        NavItem {
+            label: "Settings";
+            icon: Icons.settings;
+            compact: root.compact;
+            active: root.page == Page.settings;
+            clicked => { root.page = Page.settings; }
+        }
+    }
+}
+
+component Header inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> status;
+    min-height: 64px;
+
+    Text {
+        text: root.title;
+        font-size: 22px;
+        font-weight: 600;
+        color: Theme.text-strong;
+        vertical-alignment: center;
+        horizontal-stretch: 1;
+    }
+
+    HorizontalLayout {
+        spacing: 8px;
+        padding-right: 22px;
+        alignment: end;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 7px;
+                height: 7px;
+                background: Device.daemon-ok ? Theme.ok : Theme.bad;
+            }
+        }
+
+        Text {
+            text: Device.daemon-ok ? "asusd " + Device.daemon-version : "asusd not running";
+            font-size: 13px;
+            color: #bdbdbd;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.status;
+            font-size: 13px;
+            color: #bdbdbd;
+            vertical-alignment: center;
+        }
+    }
+
+    // Slanted corner block with battery state.
+    Rectangle {
+        width: 150px;
+        Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: 150;
+            viewbox-height: 64;
+            commands: "M30 0 L150 0 L150 64 L0 64 Z";
+            fill: Theme.row;
+        }
+
+        HorizontalLayout {
+            padding-left: 46px;
+            spacing: 10px;
+            alignment: start;
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 28px;
+                    height: 16px;
+                    border-width: 1.4px;
+                    border-color: #e6e6e6;
+                    Rectangle {
+                        x: 2.5px;
+                        width: max(0px, (parent.width - 5px) * Live.battery-percent / 100);
+                        height: parent.height - 5px;
+                        background: Theme.accent;
+                    }
+                }
+            }
+
+            Text {
+                text: Live.battery-percent >= 0 ? Live.battery-percent + "%" : "—";
+                font-size: 14px;
+                color: Theme.text-strong;
+                vertical-alignment: center;
+            }
+
+            if Live.on-ac: VerticalLayout {
+                alignment: center;
+                Icon {
+                    data: Icons.bolt;
+                    size: 16px;
+                    color: Theme.accent;
+                    stroke-width: 2px;
+                }
+            }
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "System Profiler";
+    icon: @image-url("app-icon.svg");
+    preferred-width: 1440px;
+    preferred-height: 900px;
+    min-width: 1060px;
+    min-height: 680px;
+    background: Theme.bg;
+    default-font-family: "Open Sans";
+    default-font-size: 14px;
+
+    in-out property <Page> page: Page.home;
+    in property <bool> compact-sidebar;
+
+    out property <string> page-title: page == Page.home ? "Home"
+        : page == Page.operating-mode ? "Operating Mode"
+        : page == Page.gpu-mode ? "GPU Mode"
+        : page == Page.battery-care ? "Battery Care"
+        : page == Page.display ? "Display"
+        : page == Page.keyboard-lighting ? "Keyboard Lighting"
+        : page == Page.scenario-profiles ? "Scenario Profiles"
+        : page == Page.system-monitor ? "System Monitor"
+        : page == Page.system-information ? "System Information"
+        : page == Page.personalization ? "Personalization" : "Settings";
+
+    HorizontalLayout {
+        Sidebar {
+            width: root.compact-sidebar ? 64px : 236px;
+            page <=> root.page;
+            compact: root.compact-sidebar;
+        }
+
+        Rectangle {
+            clip: true;
+            // Soft accent glow from the bottom-right corner.
+            Rectangle {
+                x: parent.width - self.width / 2;
+                y: parent.height - self.height / 2;
+                width: 1100px;
+                height: 1100px;
+                background: @radial-gradient(circle, Theme.accent.with-alpha(0.1 * Theme.glow) 0%, Theme.accent.with-alpha(0) 50%);
+            }
+
+            VerticalLayout {
+                HorizontalLayout {
+                    padding-left: 34px;
+                    Header {
+                        title: root.page-title;
+                        status: Device.mode == 0 ? "· Silent" : Device.mode == 1 ? "· Performance" : Device.mode == 2 ? "· Turbo" : "";
+                    }
+                }
+
+                Flickable {
+                    VerticalLayout {
+                        padding-left: 34px;
+                        padding-right: 34px;
+                        padding-top: 10px;
+                        padding-bottom: 40px;
+                        if root.page == Page.home: HomePage { }
+                        if root.page != Page.home: PlaceholderPage { title: root.page-title; }
+                    }
+                }
+            }
+        }
+    }
+}

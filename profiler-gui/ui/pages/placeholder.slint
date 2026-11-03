@@ -1,0 +1,18 @@
+import { Theme } from "../theme.slint";
+import { SectionHeader } from "../widgets/common.slint";
+
+// Stand-in for pages that are not implemented yet.
+export component PlaceholderPage inherits VerticalLayout {
+    in property <string> title;
+    spacing: 14px;
+    alignment: start;
+    SectionHeader { title: root.title; }
+    HorizontalLayout {
+        padding-left: 20px;
+        Text {
+        text: "This page is being built and will arrive in an upcoming update.";
+        font-size: 14px;
+        color: Theme.text-dim;
+        }
+    }
+}
