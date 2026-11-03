@@ -9,7 +9,7 @@ homepage.workspace = true
 edition.workspace = true
 
 [features]
-default = []
+default = ["x11"]
 x11 = ["slint/backend-winit-x11"]
 # Optional tokio debug feature does not require nightly; remove RUSTFLAGS note.
 tokio-debug = ["console-subscriber"]
