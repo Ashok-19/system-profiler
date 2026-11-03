@@ -24,6 +24,8 @@ pub struct CpuStats {
     pub usage_percent: Option<f32>,
     /// Package/die temperature in °C.
     pub temp_c: Option<f32>,
+    /// Highest clock the CPU is rated for (`cpuinfo_max_freq`), in MHz.
+    pub rated_max_mhz: Option<u32>,
     pub cores: Vec<CoreStats>,
 }
 
@@ -154,6 +156,7 @@ pub(crate) fn millidegrees_to_c(v: i64) -> f32 {
 pub(crate) struct CpuReader {
     root: PathBuf,
     model: Option<String>,
+    rated_max_mhz: Option<u32>,
     prev: HashMap<Option<u32>, Times>,
 }
 
@@ -162,6 +165,10 @@ impl CpuReader {
         Self {
             root: root.to_owned(),
             model: read_model(root),
+            rated_max_mhz: sysfs::read_u64(
+                &root.join("sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"),
+            )
+            .and_then(|khz| u32::try_from(khz / 1000).ok()),
             prev: HashMap::new(),
         }
     }
@@ -189,6 +196,7 @@ impl CpuReader {
 
         let stats = CpuStats {
             model: self.model.clone(),
+            rated_max_mhz: self.rated_max_mhz,
             usage_percent: usage(None),
             temp_c: read_temp(chips),
             cores,
@@ -227,6 +235,10 @@ mod tests {
             "sys/devices/system/cpu/cpu1/cpufreq/scaling_cur_freq",
             "1400000\n",
         );
+        fx.write(
+            "sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq",
+            "4300000\n",
+        );
         fx.write("sys/class/hwmon/hwmon5/name", "k10temp\n");
         fx.write("sys/class/hwmon/hwmon5/temp1_input", "92000\n");
         fx.write("sys/class/hwmon/hwmon5/temp1_label", "Tctl\n");
@@ -245,6 +257,7 @@ mod tests {
         assert_eq!(s.usage_percent, None);
         assert_eq!(s.cores.len(), 2);
         assert_eq!(s.cores[0].freq_mhz, Some(2969));
+        assert_eq!(s.rated_max_mhz, Some(4300));
         assert_eq!(s.temp_c, Some(92.0));
     }
 
