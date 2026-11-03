@@ -5547,6 +5547,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "sys_monitor"
+version = "6.5.0"
+
+[[package]]
 name = "taffy"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

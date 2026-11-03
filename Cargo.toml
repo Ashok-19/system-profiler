@@ -30,6 +30,7 @@ members = [
   "rog-slash",
   "simulators",
   "rog-scsi",
+  "sys-monitor",
 ]
 
 default-members = ["asusctl", "asusd", "asus-shutdown", "asusd-user", "rog-control-center"]
