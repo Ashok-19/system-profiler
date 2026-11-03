@@ -31,9 +31,10 @@ members = [
   "simulators",
   "rog-scsi",
   "sys-monitor",
+  "profiler-gui",
 ]
 
-default-members = ["asusctl", "asusd", "asus-shutdown", "asusd-user", "rog-control-center"]
+default-members = ["asusctl", "asusd", "asus-shutdown", "asusd-user", "rog-control-center", "profiler-gui"]
 
 [workspace.dependencies]
 argh = "^0.1.19"

@@ -1,0 +1,263 @@
+import { Theme } from "../theme.slint";
+import { Icons } from "../icons.slint";
+import { Live, Machine, Device, MonitorPanel } from "../state.slint";
+import { SectionHeader, MetricBar, KeyValue, ModeTab, Select } from "../widgets/common.slint";
+
+// Stylised laptop drawn from primitives (no product artwork).
+component LaptopHero inherits VerticalLayout {
+    alignment: center;
+    spacing: 0px;
+    HorizontalLayout {
+        alignment: center;
+        Rectangle {
+            width: 300px;
+            height: 190px;
+            border-top-left-radius: 9px;
+            border-top-right-radius: 9px;
+            border-bottom-left-radius: 2px;
+            border-bottom-right-radius: 2px;
+            background: @linear-gradient(180deg, #3a3a3a 0%, #262626 100%);
+            screen := Rectangle {
+                x: 9px;
+                y: 9px;
+                width: parent.width - 18px;
+                height: parent.height - 21px;
+                clip: true;
+                background: @linear-gradient(160deg, Theme.accent.with-alpha(0.12) 0%, #0d0d0d 60%);
+                Path {
+                    width: screen.width;
+                    height: screen.height;
+                    viewbox-width: 282;
+                    viewbox-height: 169;
+                    commands: "M-40 169 L35 0 L170 0 L95 169 Z";
+                    fill: @linear-gradient(180deg, Theme.accent 0%, Theme.accent-dark 100%);
+                    opacity: 0.9;
+                }
+
+                Path {
+                    width: screen.width;
+                    height: screen.height;
+                    viewbox-width: 282;
+                    viewbox-height: 169;
+                    commands: "M100 169 L175 0 L221 0 L146 169 Z";
+                    fill: #2a2a2a;
+                }
+
+                Path {
+                    width: screen.width;
+                    height: screen.height;
+                    viewbox-width: 282;
+                    viewbox-height: 169;
+                    commands: "M158 169 L233 0 L251 0 L176 169 Z";
+                    fill: Theme.accent;
+                    opacity: 0.8;
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        alignment: center;
+        Path {
+            width: 362px;
+            height: 13px;
+            viewbox-width: 362;
+            viewbox-height: 13;
+            commands: "M0 0 L362 0 L347 13 L15 13 Z";
+            fill: @linear-gradient(180deg, #5a5a5a 0%, #2c2c2c 100%);
+        }
+    }
+
+    HorizontalLayout {
+        alignment: center;
+        Rectangle {
+            width: 300px;
+            height: 18px;
+            background: @radial-gradient(circle, Theme.accent.with-alpha(0.3 * Theme.glow) 0%, Theme.accent.with-alpha(0) 70%);
+        }
+    }
+}
+
+// One Systems Monitor block: big light title, metric bars, facts.
+component MonitorBlock inherits VerticalLayout {
+    in property <MonitorPanel> panel;
+    horizontal-stretch: 1;
+    min-width: 200px;
+    spacing: 10px;
+    alignment: start;
+    HorizontalLayout {
+        Text {
+            text: root.panel.title;
+            font-size: 28px;
+            font-weight: 300;
+            color: Theme.text-strong;
+        }
+
+        VerticalLayout {
+            alignment: center;
+            Path {
+                width: 34px;
+                height: 12px;
+                viewbox-width: 34;
+                viewbox-height: 12;
+                commands: "M4 0 L8 0 L4 12 L0 12 Z M12 0 L16 0 L12 12 L8 12 Z M20 0 L24 0 L20 12 L16 12 Z M28 0 L32 0 L28 12 L24 12 Z";
+                fill: Theme.line;
+            }
+        }
+    }
+
+    for metric in root.panel.bars: MetricBar {
+        label: metric.label;
+        value: metric.value;
+        percent: metric.percent;
+    }
+
+    for fact in root.panel.rows: KeyValue {
+        key: fact.key;
+        value: fact.value;
+    }
+}
+
+export component HomePage inherits HorizontalLayout {
+    spacing: 40px;
+
+    // Left column: the laptop and quick settings.
+    VerticalLayout {
+        min-width: 340px;
+        horizontal-stretch: 1;
+        spacing: 22px;
+        alignment: start;
+        padding-top: 18px;
+
+        LaptopHero { }
+
+        VerticalLayout {
+            spacing: 10px;
+            Text {
+                text: Machine.name;
+                font-family: Theme.display-font;
+                font-size: 26px;
+                letter-spacing: 1.5px;
+                color: Theme.text-strong;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: Machine.cpu + "\n" + Machine.dgpu + (Machine.board != "" ? " · " + Machine.board : "");
+                font-size: 13px;
+                color: #cfcfcf;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 14px;
+            padding-top: 8px;
+            SectionHeader { title: "Quick Settings"; }
+            Rectangle {
+                border-width: 1px;
+                border-color: Theme.border;
+                border-radius: Theme.radius;
+                VerticalLayout {
+                    padding-left: 18px;
+                    padding-right: 18px;
+                    padding-top: 4px;
+                    padding-bottom: 4px;
+                    HorizontalLayout {
+                        min-height: Theme.row-height;
+                        Text {
+                            text: "Battery Charging";
+                            font-size: 14px;
+                            color: #d6d6d6;
+                            vertical-alignment: center;
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            Select {
+                                width: 200px;
+                                options: ["Full Capacity", "Balanced (80%)", "Max Lifespan (60%)"];
+                                current-index: Device.charge-limit == 100 ? 0 : Device.charge-limit == 80 ? 1 : Device.charge-limit == 60 ? 2 : -1;
+                                placeholder: Device.charge-limit < 0 ? "Not available" : "Custom (" + Device.charge-limit + "%)";
+                                selected(index) => {
+                                    Device.charge-limit = index == 0 ? 100 : index == 1 ? 80 : 60;
+                                    Device.set-charge-limit(Device.charge-limit);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Right column: live monitor and operating mode.
+    VerticalLayout {
+        min-width: 460px;
+        horizontal-stretch: 1.25;
+        spacing: 22px;
+        alignment: start;
+
+        SectionHeader { title: "Systems Monitor"; }
+
+        VerticalLayout {
+            padding-left: 20px;
+            spacing: 30px;
+            HorizontalLayout {
+                spacing: 56px;
+                MonitorBlock { panel: Live.panels[0]; }
+                MonitorBlock { panel: Live.panels[1]; }
+            }
+
+            HorizontalLayout {
+                spacing: 56px;
+                MonitorBlock { panel: Live.panels[2]; }
+                MonitorBlock { panel: Live.panels[3]; }
+            }
+        }
+
+        VerticalLayout {
+            spacing: 14px;
+            padding-top: 6px;
+            SectionHeader { title: "Operating Mode"; }
+            HorizontalLayout {
+                padding-left: 20px;
+                Rectangle {
+                    Rectangle {
+                        y: parent.height - 1px;
+                        height: 1px;
+                        background: Theme.line;
+                    }
+
+                    HorizontalLayout {
+                        ModeTab {
+                            label: "Silent";
+                            icon: Icons.silent;
+                            selected: Device.mode == 0;
+                            enabled: Device.daemon-ok;
+                            clicked => { Device.mode = 0; Device.set-mode(0); }
+                        }
+
+                        ModeTab {
+                            label: "Performance";
+                            icon: Icons.performance;
+                            selected: Device.mode == 1;
+                            enabled: Device.daemon-ok;
+                            clicked => { Device.mode = 1; Device.set-mode(1); }
+                        }
+
+                        ModeTab {
+                            label: "Turbo";
+                            icon: Icons.turbo;
+                            selected: Device.mode == 2;
+                            enabled: Device.daemon-ok;
+                            clicked => { Device.mode = 2; Device.set-mode(2); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

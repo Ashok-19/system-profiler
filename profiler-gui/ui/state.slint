@@ -1,0 +1,47 @@
+// Data shared between Rust and the UI.
+
+export struct Metric {
+    label: string,
+    value: string,
+    percent: float,
+}
+
+export struct Fact {
+    key: string,
+    value: string,
+}
+
+// One "Systems Monitor" block (CPU, GPU, Fan, Memory).
+export struct MonitorPanel {
+    title: string,
+    bars: [Metric],
+    rows: [Fact],
+}
+
+// Live sensor readings, refreshed by the monitor thread.
+export global Live {
+    in property <[MonitorPanel]> panels;
+    in property <int> battery-percent: -1;
+    in property <bool> on-ac: true;
+}
+
+// Static facts about this machine.
+export global Machine {
+    in property <string> name: "ASUS LAPTOP";
+    in property <string> board;
+    in property <string> cpu;
+    in property <string> dgpu;
+}
+
+// State owned by asusd. Setters are optimistic; the daemon thread
+// re-reads the real values afterwards.
+export global Device {
+    in property <bool> daemon-ok;
+    in property <string> daemon-version;
+    // 0 = Silent, 1 = Performance, 2 = Turbo, -1 = unknown/unsupported.
+    in-out property <int> mode: -1;
+    callback set-mode(int);
+    // Battery charge limit in percent, -1 if unsupported.
+    in-out property <int> charge-limit: -1;
+    callback set-charge-limit(int);
+}

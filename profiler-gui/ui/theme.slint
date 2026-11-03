@@ -1,0 +1,35 @@
+// Design tokens. Every colour in the UI comes from here so the
+// Personalization page can restyle the whole app at runtime.
+
+export global Theme {
+    // Accent (default: TUF amber). `accent-dark` is the low end of gradients.
+    in-out property <color> accent: #ffa51a;
+    in-out property <color> accent-dark: #9e6610;
+    // 0..1 strength of glows and highlight gradients.
+    in-out property <float> glow: 0.7;
+
+    // Surfaces (default: Graphite).
+    in-out property <color> bg: #0c0c0c;
+    in-out property <color> side: #171717;
+    in-out property <color> row: #1a1a1a;
+    in-out property <color> panel: #121212;
+    in-out property <color> hair: #262626;
+
+    // Fixed neutrals.
+    out property <color> line: #4a4a4a;
+    out property <color> border: #5a5a5a;
+    out property <color> control-border: #a8a8a8;
+    out property <color> control-bg: #111111;
+    out property <color> text: #ededed;
+    out property <color> text-strong: #ffffff;
+    out property <color> text-muted: #c9c9c9;
+    out property <color> text-dim: #9e9e9e;
+    out property <color> text-faint: #8e8e8e;
+    out property <color> ok: #59d17e;
+    out property <color> bad: #ff6b5e;
+
+    in-out property <length> radius: 2px;
+    in-out property <length> row-height: 56px;
+
+    out property <string> display-font: "Michroma";
+}

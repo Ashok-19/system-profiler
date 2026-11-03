@@ -1,0 +1,28 @@
+[package]
+name = "profiler-gui"
+description = "Armoury Crate-style control center for ASUS laptops, built on asusd"
+license.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "system-profiler"
+path = "src/main.rs"
+
+[dependencies]
+sys_monitor = { path = "../sys-monitor" }
+rog_dbus = { path = "../rog-dbus" }
+rog_platform = { path = "../rog-platform" }
+
+env_logger.workspace = true
+log.workspace = true
+slint = { workspace = true, features = ["backend-winit-x11", "renderer-software"] }
+zbus.workspace = true
+
+[build-dependencies]
+slint-build.workspace = true
