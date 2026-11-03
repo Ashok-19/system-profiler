@@ -1,3 +1,20 @@
+# system-profiler
+
+> [!NOTE]
+> **This is a fork of [asusctl](https://github.com/opengamingcollective/asusctl)**
+> (MPL-2.0) that aims at an Armoury Crate–style control center for Linux,
+> tuned for the **ASUS TUF Gaming A15 (FA506IC)** on **Ubuntu 24.04 / X11**.
+>
+> Fork-specific changes:
+> - Ubuntu 24.04 treated as a supported build target.
+> - X11 enabled for the GUI by default.
+> - A redesigned GUI with live system monitoring (planned).
+>
+> Upstream is tracked as the `upstream` git remote and merged in regularly.
+> Everything below this note is upstream's documentation unless marked otherwise.
+
+---
+
 # asusctl for ASUS ROG
 
 <p align="center">
