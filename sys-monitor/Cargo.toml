@@ -1,0 +1,12 @@
+[package]
+name = "sys_monitor"
+description = "Unprivileged live hardware monitoring (CPU, GPU, fans, memory, battery) from procfs/sysfs"
+license.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
