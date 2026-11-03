@@ -2,6 +2,41 @@
 
 > Only Ubuntu 26.04 LTS is supported; asusctl is distributed using [Homebrew](https://brew.sh/)
 
+## Ubuntu 24.04 LTS (system-profiler fork)
+
+This fork is built and tested on Ubuntu 24.04 with the stock 6.8 kernel
+(ASUS TUF Gaming A15 FA506IC, XFCE on X11). Build and install from source as
+described in the [README](https://github.com/Ashok-19/system-profiler#ubuntu-2404-supported-by-this-fork),
+then:
+
+```bash
+sudo systemctl daemon-reload
+# Mask (not just disable) so D-Bus activation cannot bring it back.
+sudo systemctl mask --now power-profiles-daemon.service
+sudo systemctl start asusd.service
+```
+
+`asusd` and `asus-shutdown` are started automatically on later boots by the
+udev rule. To undo: `sudo systemctl unmask power-profiles-daemon.service` and
+`sudo make uninstall`.
+
+### What works on the stock 6.8 kernel
+
+The 6.8 kernel has no `asus-armoury` driver (mainline since 6.19), so firmware
+attributes are only available through the older `asus-nb-wmi` driver:
+
+| Feature | Status on 6.8 |
+| :--- | :--- |
+| Platform profiles (Quiet/Balanced/Performance) and linked CPU EPP | Works |
+| Separate AC / battery profiles | Works |
+| Battery charge limit | Works |
+| Keyboard brightness and TUF RGB modes | Works |
+| `asusctl armoury` and the GUI's GPU / system pages | Unavailable (need `asus-armoury`) |
+| dGPU disable (Eco mode) | Planned in this fork via `asus-nb-wmi` |
+| Custom fan curves | Model dependent; not available on FA506IC |
+
+The rest of this page is upstream's guide for Ubuntu 26.04.
+
 ## Installation
 
 1. Install Homebrew for Linux if you don't have it already:
