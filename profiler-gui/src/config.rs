@@ -31,6 +31,16 @@ pub struct Config {
     pub show_hero: bool,
     /// Keep the keyboard backlight in the accent colour.
     pub match_keyboard: bool,
+
+    pub fahrenheit: bool,
+    /// Seconds between sensor samples: 1, 2 or 5.
+    pub interval_s: u8,
+    /// Notify when the operating mode changes outside the app.
+    pub notify_mode: bool,
+    /// Notify when the charger is plugged in or removed.
+    pub notify_power: bool,
+    /// Warn when the CPU is hotter than this (°C); 0 = never.
+    pub hot_cpu_c: u8,
 }
 
 impl Default for Config {
@@ -45,11 +55,35 @@ impl Default for Config {
             icons_only_sidebar: false,
             show_hero: true,
             match_keyboard: false,
+            fahrenheit: false,
+            interval_s: 1,
+            notify_mode: true,
+            notify_power: false,
+            hot_cpu_c: 0,
         }
     }
 }
 
 impl Config {
+    /// This config with the look reset to the default TUF theme; other
+    /// settings are kept.
+    #[must_use]
+    pub fn with_default_theme(self) -> Self {
+        let d = Self::default();
+        Self {
+            accent: d.accent,
+            background: d.background,
+            glow: d.glow,
+            rounded: d.rounded,
+            compact: d.compact,
+            text_size: d.text_size,
+            icons_only_sidebar: d.icons_only_sidebar,
+            show_hero: d.show_hero,
+            match_keyboard: d.match_keyboard,
+            ..self
+        }
+    }
+
     /// Clamp values a hand-edited file might get wrong.
     #[must_use]
     pub fn sanitized(mut self) -> Self {
@@ -64,6 +98,16 @@ impl Config {
         .contains(&self.text_size)
         {
             self.text_size = 100;
+        }
+        if ![1, 2, 5].contains(&self.interval_s) {
+            self.interval_s = 1;
+        }
+        if ![
+            0, 90, 95, 100,
+        ]
+        .contains(&self.hot_cpu_c)
+        {
+            self.hot_cpu_c = 0;
         }
         self
     }
@@ -152,6 +196,11 @@ mod tests {
             icons_only_sidebar: true,
             show_hero: false,
             match_keyboard: true,
+            fahrenheit: true,
+            interval_s: 5,
+            notify_mode: false,
+            notify_power: true,
+            hot_cpu_c: 95,
         };
         save(&path, &config).unwrap();
         assert_eq!(load(&path), config);
@@ -164,16 +213,38 @@ mod tests {
         let dir = temp_dir("partial");
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("config.ron");
-        fs::write(&path, "(glow: 250, accent: \"orange\", text_size: 120)").unwrap();
+        fs::write(
+            &path,
+            "(glow: 250, accent: \"orange\", text_size: 120, interval_s: 3, hot_cpu_c: 42)",
+        )
+        .unwrap();
         let config = load(&path);
         assert_eq!(config.glow, 100);
         assert_eq!(config.accent, DEFAULT_ACCENT);
         assert_eq!(config.text_size, 100);
+        assert_eq!(config.interval_s, 1);
+        assert_eq!(config.hot_cpu_c, 0);
         assert!(config.show_hero, "missing fields take defaults");
 
         fs::write(&path, "not ron at all").unwrap();
         assert_eq!(load(&path), Config::default());
         fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn theme_reset_keeps_settings() {
+        let custom = Config {
+            accent: "#22d3ee".to_owned(),
+            compact: true,
+            fahrenheit: true,
+            hot_cpu_c: 95,
+            ..Config::default()
+        };
+        let reset = custom.with_default_theme();
+        assert_eq!(reset.accent, DEFAULT_ACCENT);
+        assert!(!reset.compact);
+        assert!(reset.fahrenheit);
+        assert_eq!(reset.hot_cpu_c, 95);
     }
 
     #[test]

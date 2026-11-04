@@ -1,17 +1,17 @@
 //! Background sampling of hardware sensors.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread;
 use std::time::Duration;
 
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
 use sys_monitor::Monitor;
 
+use crate::alerts::{Alerts, Reading, Wanted};
+use crate::notify;
+use crate::shared::Shared;
 use crate::view::{ChartView, FactView, Formatter, LiveView, PanelView, SensorView};
 use crate::{AppWindow, Chart, Fact, Live, Metric, MonitorPanel, Sensor, SensorRow};
-
-const INTERVAL: Duration = Duration::from_secs(1);
 
 fn metrics(panel: &PanelView) -> Vec<Metric> {
     panel
@@ -154,23 +154,46 @@ fn apply(ui: &AppWindow, view: &LiveView) {
 /// Sample sensors on a background thread and push them to the UI until the
 /// window is gone. `monitor` should already have taken one sample so the
 /// first update has usage percentages.
-pub fn spawn(app: &AppWindow, mut monitor: Monitor) {
-    // Chart window chosen on the System Monitor page, in minutes.
-    let window = Arc::new(AtomicU32::new(1));
-    let chosen = Arc::clone(&window);
+pub fn spawn(app: &AppWindow, mut monitor: Monitor, shared: &Arc<Shared>) {
+    let chosen = Arc::clone(shared);
     app.global::<Live>().on_set_history_minutes(move |minutes| {
-        chosen.store(u32::try_from(minutes).unwrap_or(1), Ordering::Relaxed);
+        chosen.set_window_minutes(u32::try_from(minutes).unwrap_or(1));
     });
 
     let ui = app.as_weak();
+    let shared = Arc::clone(shared);
     let spawned = thread::Builder::new()
         .name("monitor".to_owned())
         .spawn(move || {
             let mut formatter = Formatter::default();
+            let mut alerts = Alerts::default();
             loop {
-                thread::sleep(INTERVAL);
-                formatter.window_minutes = window.load(Ordering::Relaxed);
-                let view = formatter.live(&monitor.sample());
+                let interval = shared.interval_s().max(1);
+                thread::sleep(Duration::from_secs(u64::from(interval)));
+                formatter.window_minutes = shared.window_minutes();
+                formatter.interval_s = interval;
+                formatter.fahrenheit = shared.fahrenheit();
+
+                let snapshot = monitor.sample();
+                let reading = Reading {
+                    on_ac: snapshot.power.ac_online,
+                    battery_percent: snapshot
+                        .power
+                        .battery
+                        .as_ref()
+                        .and_then(|b| b.capacity_percent),
+                    cpu_c: snapshot.cpu.temp_c,
+                };
+                let wanted = Wanted {
+                    power: shared.notify_power(),
+                    hot_cpu_c: shared.hot_cpu_c(),
+                    fahrenheit: formatter.fahrenheit,
+                };
+                for alert in alerts.check(reading, wanted) {
+                    notify::show(alert.tag, &alert.summary, &alert.body);
+                }
+
+                let view = formatter.live(&snapshot);
                 if ui
                     .upgrade_in_event_loop(move |ui| apply(&ui, &view))
                     .is_err()

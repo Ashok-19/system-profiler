@@ -13,8 +13,22 @@ export global Prefs {
     in-out property <bool> icons-only-sidebar;
     in-out property <bool> show-hero: true;
     in-out property <bool> match-keyboard;
+
+    // Settings page.
+    in-out property <bool> fahrenheit;
+    // Seconds between sensor samples: 1, 2, 5.
+    in-out property <int> interval: 1;
+    in-out property <bool> notify-mode: true;
+    in-out property <bool> notify-power;
+    // Warn above this CPU temperature in °C; 0 = never.
+    in-out property <int> hot-cpu;
+    // Mirrors the XDG autostart entry; changed through set-autostart.
+    in property <bool> autostart;
+    callback set-autostart(bool);
+    callback test-notification();
+
     callback save();
-    // Restore defaults (Rust sets every property, then saves).
+    // Restore the default look (Rust sets the properties, then saves).
     callback reset();
 }
 

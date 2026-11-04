@@ -1,0 +1,142 @@
+import { Theme, Prefs } from "../theme.slint";
+import { Device } from "../state.slint";
+import { SettingRow, SettingsSection, Switch, Segmented, Select, OutlineButton } from "../widgets/common.slint";
+
+component InfoText inherits Text {
+    font-size: 14px * Theme.text-scale;
+    color: Theme.text;
+    horizontal-alignment: right;
+    wrap: word-wrap;
+}
+
+export component SettingsPage inherits HorizontalLayout {
+    in property <string> app-version;
+    property <[int]> intervals: [1, 2, 5];
+    property <[int]> hot-limits: [0, 90, 95, 100];
+
+    pure function degrees(c: int) -> string {
+        return Prefs.fahrenheit ? Math.round(c * 9 / 5 + 32) + " °F" : c + " °C";
+    }
+
+    // Content stops at 1080 px; the filler takes the rest so the page
+    // never limits the window's width.
+    VerticalLayout {
+        max-width: 1080px;
+        horizontal-stretch: 1;
+        spacing: 34px;
+        alignment: start;
+
+        SettingsSection {
+            title: "General";
+            SettingRow {
+                shaded: true;
+                label: "Start with the desktop session";
+                sub: "Adds System Profiler to your session's autostart";
+                Switch {
+                    label: "Start with the desktop session";
+                    checked: Prefs.autostart;
+                    toggled(on) => { Prefs.set-autostart(on); }
+                }
+            }
+        }
+
+        SettingsSection {
+            title: "Monitoring";
+            SettingRow {
+                shaded: true;
+                label: "Temperature unit";
+                Segmented {
+                    width: 280px;
+                    options: ["Celsius (°C)", "Fahrenheit (°F)"];
+                    current: Prefs.fahrenheit ? 1 : 0;
+                    selected(i) => { Prefs.fahrenheit = i == 1; Prefs.save(); }
+                }
+            }
+
+            SettingRow {
+                label: "Update sensors every";
+                sub: "Longer intervals use less CPU";
+                Segmented {
+                    width: 280px;
+                    options: ["1 s", "2 s", "5 s"];
+                    current: Prefs.interval == 5 ? 2 : Prefs.interval == 2 ? 1 : 0;
+                    selected(i) => { Prefs.interval = root.intervals[i]; Prefs.save(); }
+                }
+            }
+        }
+
+        SettingsSection {
+            title: "Notifications";
+            hint: "Shown while System Profiler is running";
+            SettingRow {
+                shaded: true;
+                label: "Operating mode changes";
+                sub: "When the mode changes outside the app, e.g. with Fn + F5";
+                Switch {
+                    label: "Notify about operating mode changes";
+                    checked: Prefs.notify-mode;
+                    toggled(on) => { Prefs.notify-mode = on; Prefs.save(); }
+                }
+            }
+
+            SettingRow {
+                label: "Charger plugged in or removed";
+                Switch {
+                    label: "Notify when the charger is plugged in or removed";
+                    checked: Prefs.notify-power;
+                    toggled(on) => { Prefs.notify-power = on; Prefs.save(); }
+                }
+            }
+
+            SettingRow {
+                shaded: true;
+                label: "Warn when the CPU is hotter than";
+                sub: "Once per hot spell; it re-arms after the CPU cools";
+                Select {
+                    width: 228px;
+                    options: ["Never", root.degrees(90), root.degrees(95), root.degrees(100)];
+                    current-index: Prefs.hot-cpu == 90 ? 1 : Prefs.hot-cpu == 95 ? 2 : Prefs.hot-cpu == 100 ? 3 : 0;
+                    selected(i) => { Prefs.hot-cpu = root.hot-limits[i]; Prefs.save(); }
+                }
+            }
+
+            SettingRow {
+                label: "Check that notifications appear";
+                OutlineButton {
+                    text: "Send Test";
+                    clicked => { Prefs.test-notification(); }
+                }
+            }
+        }
+
+        SettingsSection {
+            title: "About";
+            SettingRow {
+                shaded: true;
+                label: "System Profiler";
+                InfoText { text: "Version " + root.app-version; }
+            }
+
+            SettingRow {
+                label: "Control daemon";
+                InfoText { text: Device.daemon-ok ? "asusd " + Device.daemon-version : "asusd is not running"; }
+            }
+
+            SettingRow {
+                shaded: true;
+                label: "Based on";
+                sub: "This app is an independent project and is not affiliated with ASUS";
+                InfoText { text: "asusctl · MPL-2.0"; }
+            }
+
+            SettingRow {
+                label: "Settings file";
+                InfoText { text: "~/.config/system-profiler/config.ron"; }
+            }
+        }
+    }
+
+    Rectangle {
+        horizontal-stretch: 0.001;
+    }
+}

@@ -17,6 +17,7 @@ const MODES: usize = 3;
 /// A change requested from the UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Command {
+    /// UI mode index.
     Mode(i32),
     ChargeLimit(u8),
     OneShotCharge,
@@ -24,7 +25,10 @@ pub enum Command {
     ModeOnAc(i32),
     ModeOnBattery(i32),
     LinkedEpp(bool),
-    ModeEpp { mode: i32, epp: i32 },
+    ModeEpp {
+        mode: i32,
+        epp: i32,
+    },
 }
 
 /// What the UI shows about asusd.
@@ -45,6 +49,11 @@ pub struct State {
 }
 
 impl State {
+    /// UI mode index; -1 if unknown.
+    pub const fn mode(&self) -> i32 {
+        self.mode
+    }
+
     /// asusd answered (it reported its version).
     pub const fn is_connected(&self) -> bool {
         self.version.is_some()
@@ -75,6 +84,16 @@ const fn mode_from_profile(profile: PlatformProfile) -> i32 {
         PlatformProfile::Balanced => 1,
         PlatformProfile::Performance => 2,
         PlatformProfile::LowPower | PlatformProfile::Custom => -1,
+    }
+}
+
+/// Name and one-line summary of a UI mode, for notifications.
+pub const fn describe_mode(mode: i32) -> Option<(&'static str, &'static str)> {
+    match mode {
+        0 => Some(("Silent", "Quiet fans; cool and efficient")),
+        1 => Some(("Performance", "Balanced speed and noise")),
+        2 => Some(("Turbo", "Highest clocks; fans at full speed")),
+        _ => None,
     }
 }
 

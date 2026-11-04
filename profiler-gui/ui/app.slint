@@ -15,6 +15,7 @@ import { KeyboardLightingPage } from "pages/keyboard-lighting.slint";
 import { SystemMonitorPage } from "pages/system-monitor.slint";
 import { SystemInformationPage } from "pages/system-information.slint";
 import { PersonalizationPage } from "pages/personalization.slint";
+import { SettingsPage } from "pages/settings.slint";
 import { PlaceholderPage } from "pages/placeholder.slint";
 
 export { Theme, Prefs, Live, Machine, Device, Lighting }
@@ -282,7 +283,7 @@ export component AppWindow inherits Window {
 
     property <bool> page-built: page == Page.home || page == Page.operating-mode || page == Page.battery-care
         || page == Page.keyboard-lighting || page == Page.system-monitor || page == Page.system-information
-        || page == Page.personalization;
+        || page == Page.personalization || page == Page.settings;
     out property <string> page-title: page == Page.home ? "Home"
         : page == Page.operating-mode ? "Operating Mode"
         : page == Page.gpu-mode ? "GPU Mode"
@@ -333,6 +334,7 @@ export component AppWindow inherits Window {
                         if root.page == Page.keyboard-lighting: KeyboardLightingPage { }
                         if root.page == Page.system-monitor: SystemMonitorPage { }
                         if root.page == Page.personalization: PersonalizationPage { }
+                        if root.page == Page.settings: SettingsPage { app-version: root.app-version; }
                         if root.page == Page.system-information: SystemInformationPage { app-version: root.app-version; }
                         if !root.page-built: PlaceholderPage { title: root.page-title; }
                     }
