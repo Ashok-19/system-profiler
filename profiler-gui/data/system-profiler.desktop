@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=System Profiler
+GenericName=Laptop Control Center
+Comment=Operating modes, battery care, keyboard lighting and monitoring for ASUS laptops
+Exec=system-profiler
+Icon=system-profiler
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=asus;tuf;rog;armoury;fan;battery;charge;keyboard;rgb;gpu;refresh;monitor;
+StartupWMClass=system-profiler
+StartupNotify=true

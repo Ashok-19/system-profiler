@@ -17,11 +17,12 @@ BIN_C := asusctl
 BIN_D := asusd
 BIN_S := asus-shutdown
 BIN_U := asusd-user
+BIN_SP := system-profiler
 LEDCFG := aura_support.ron
 
 DESTDIR_REALPATH := $(if $(DESTDIR),$(shell realpath $(DESTDIR)),)
 
-SRC := Cargo.toml Makefile $(wildcard */build.rs) $(shell find -type f -wholename '**/src/*.rs') $(shell find rog-control-center/translations)
+SRC := Cargo.toml Makefile $(wildcard */build.rs) $(shell find -type f -wholename '**/src/*.rs') $(shell find rog-control-center/translations) $(shell find profiler-gui/ui -type f)
 
 STRIP_BINARIES ?= 0
 
@@ -76,6 +77,9 @@ target/$(TARGET)/$(BIN_U): $(SRC)
 target/$(TARGET)/$(BIN_ROG): $(SRC)
 	$(MAKE) build
 
+target/$(TARGET)/$(BIN_SP): $(SRC)
+	$(MAKE) build
+
 install-asusd: target/$(TARGET)/$(BIN_D)
 	$(INSTALL_PROGRAM) "./target/$(TARGET)/$(BIN_D)" "$(DESTDIR)$(bindir)/$(BIN_D)"
 
@@ -93,7 +97,10 @@ install-rog_gui: target/$(TARGET)/$(BIN_ROG)
 
 .PHONY: install-asusd install-asus-shutdown install-asusctl install-asusd_user install-rog_gui
 
-install-program: install-asusd install-asus-shutdown install-asusctl install-asusd_user install-rog_gui
+install-system_profiler: target/$(TARGET)/$(BIN_SP)
+	$(INSTALL_PROGRAM) "./target/$(TARGET)/$(BIN_SP)" "$(DESTDIR)$(bindir)/$(BIN_SP)"
+
+install-program: install-asusd install-asus-shutdown install-asusctl install-asusd_user install-rog_gui install-system_profiler
 
 install-data-rog_gui: target/$(TARGET)/$(BIN_ROG)
 	$(INSTALL_DATA) "./rog-control-center/data/$(APP_ID).desktop" "$(DESTDIR)$(datarootdir)/applications/$(APP_ID).desktop"
@@ -133,12 +140,22 @@ install-data-asusd:
 
 .PHONY: install-data-asusd install-data-asusd_user
 
-install-data: install-data-asusd install-data-asusd_user install-data-rog_gui
+install-data-system_profiler:
+	$(INSTALL_DATA) "./profiler-gui/data/$(BIN_SP).desktop" "$(DESTDIR)$(datarootdir)/applications/$(BIN_SP).desktop"
+	$(INSTALL_DATA) "./profiler-gui/ui/app-icon.svg" "$(DESTDIR)$(datarootdir)/icons/hicolor/scalable/apps/$(BIN_SP).svg"
+	$(INSTALL_DATA) "./profiler-gui/fonts/OFL-OpenSans.txt" "$(DESTDIR)$(datarootdir)/licenses/$(BIN_SP)/OFL-OpenSans.txt"
+	$(INSTALL_DATA) "./profiler-gui/fonts/OFL-Michroma.txt" "$(DESTDIR)$(datarootdir)/licenses/$(BIN_SP)/OFL-Michroma.txt"
+
+install-data: install-data-asusd install-data-asusd_user install-data-rog_gui install-data-system_profiler
 
 install: install-program install-data
 	$(INSTALL_DATA) "./LICENSE" "$(DESTDIR)$(datarootdir)/asusctl/LICENSE"
 
 uninstall:
+	rm -f "$(DESTDIR)$(bindir)/$(BIN_SP)"
+	rm -f "$(DESTDIR)$(datarootdir)/applications/$(BIN_SP).desktop"
+	rm -f "$(DESTDIR)$(datarootdir)/icons/hicolor/scalable/apps/$(BIN_SP).svg"
+	rm -rf "$(DESTDIR)$(datarootdir)/licenses/$(BIN_SP)"
 	rm -f "$(DESTDIR)$(bindir)/$(BIN_ROG)"
 	rm -f "$(DESTDIR)$(datarootdir)/applications/$(APP_ID).desktop"
 	rm -f "$(DESTDIR)$(datarootdir)/applications/$(BIN_ROG).desktop"
@@ -203,6 +220,7 @@ ifeq ($(STRIP_BINARIES),1)
 	strip -s ./target/$(TARGET)/$(BIN_S)
 	strip -s ./target/$(TARGET)/$(BIN_U)
 	strip -s ./target/$(TARGET)/$(BIN_ROG)
+	strip -s ./target/$(TARGET)/$(BIN_SP)
 endif
 
 
