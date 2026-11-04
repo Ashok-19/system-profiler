@@ -1,0 +1,51 @@
+import { Theme } from "../theme.slint";
+import { Device, Machine } from "../state.slint";
+import { SettingRow, SettingsSection } from "../widgets/common.slint";
+
+component InfoRow inherits SettingRow {
+    in property <string> value;
+    Text {
+        text: root.value;
+        font-size: 14px;
+        color: Theme.text;
+        horizontal-alignment: right;
+        wrap: word-wrap;
+    }
+}
+
+export component SystemInformationPage inherits HorizontalLayout {
+    in property <string> app-version;
+
+    // Content stops at 1080 px; the filler takes the rest so the page
+    // never limits the window's width.
+    VerticalLayout {
+        max-width: 1080px;
+        horizontal-stretch: 1;
+        alignment: start;
+
+        SettingsSection {
+            title: "System Information";
+            for fact[i] in Machine.details: InfoRow {
+                shaded: Math.mod(i, 2) == 0;
+                label: fact.key;
+                value: fact.value;
+            }
+
+            InfoRow {
+                shaded: Math.mod(Machine.details.length, 2) == 0;
+                label: "Control Daemon";
+                value: Device.daemon-ok ? "asusd " + Device.daemon-version : "asusd is not running";
+            }
+
+            InfoRow {
+                shaded: Math.mod(Machine.details.length, 2) == 1;
+                label: "App";
+                value: "System Profiler " + root.app-version;
+            }
+        }
+    }
+
+    Rectangle {
+        horizontal-stretch: 0.001;
+    }
+}

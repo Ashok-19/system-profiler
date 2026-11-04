@@ -1,13 +1,15 @@
 //! Background sampling of hardware sensors.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread;
 use std::time::Duration;
 
-use slint::{ComponentHandle, Model, ModelRc, VecModel, Weak};
+use slint::{ComponentHandle, Model, ModelRc, VecModel};
 use sys_monitor::Monitor;
 
-use crate::view::{FactView, Formatter, LiveView, PanelView};
-use crate::{AppWindow, Fact, Live, Metric, MonitorPanel};
+use crate::view::{ChartView, FactView, Formatter, LiveView, PanelView, SensorView};
+use crate::{AppWindow, Chart, Fact, Live, Metric, MonitorPanel, Sensor, SensorRow};
 
 const INTERVAL: Duration = Duration::from_secs(1);
 
@@ -84,31 +86,90 @@ fn sync_panels(live: &Live<'_>, panels: &[PanelView]) {
     }
 }
 
+/// Put `items` into the model from `get`, in place when it is already a
+/// `VecModel`, otherwise through `set`.
+fn sync_or_set<T: Clone + PartialEq + 'static>(
+    current: &ModelRc<T>,
+    items: Vec<T>,
+    set: impl FnOnce(ModelRc<T>),
+) {
+    if current.as_any().is::<VecModel<T>>() {
+        sync_rows(current, items);
+    } else {
+        set(ModelRc::new(VecModel::from(items)));
+    }
+}
+
+fn to_chart(c: &ChartView) -> Chart {
+    Chart {
+        title: c.title.as_str().into(),
+        now: c.now.as_str().into(),
+        min: c.min.as_str().into(),
+        max: c.max.as_str().into(),
+        line: c.line.as_str().into(),
+        area: c.area.as_str().into(),
+    }
+}
+
+fn to_sensor(s: &SensorView) -> Sensor {
+    Sensor {
+        name: s.name.as_str().into(),
+        source: s.source.as_str().into(),
+        value: s.value.as_str().into(),
+    }
+}
+
+/// Lay sensors out in two columns read top to bottom, left then right.
+fn sensor_rows(sensors: &[SensorView]) -> Vec<SensorRow> {
+    let half = sensors.len().div_ceil(2);
+    let (left, right) = sensors.split_at(half);
+    left.iter()
+        .enumerate()
+        .map(|(i, l)| SensorRow {
+            left: to_sensor(l),
+            right: right.get(i).map(to_sensor).unwrap_or_default(),
+        })
+        .collect()
+}
+
 fn apply(ui: &AppWindow, view: &LiveView) {
     let live = ui.global::<Live>();
     sync_panels(&live, &view.panels);
     live.set_battery_percent(view.battery_percent);
     live.set_on_ac(view.on_ac);
     live.set_battery_status(view.battery.status.as_str().into());
-    let battery_facts = facts(&view.battery.facts);
-    let current = live.get_battery_facts();
-    if current.as_any().is::<VecModel<Fact>>() {
-        sync_rows(&current, battery_facts);
-    } else {
-        live.set_battery_facts(ModelRc::new(VecModel::from(battery_facts)));
-    }
+    sync_or_set(&live.get_battery_facts(), facts(&view.battery.facts), |m| {
+        live.set_battery_facts(m);
+    });
+    sync_or_set(
+        &live.get_charts(),
+        view.charts.iter().map(to_chart).collect(),
+        |m| live.set_charts(m),
+    );
+    sync_or_set(&live.get_sensors(), sensor_rows(&view.sensors), |m| {
+        live.set_sensors(m);
+    });
 }
 
 /// Sample sensors on a background thread and push them to the UI until the
 /// window is gone. `monitor` should already have taken one sample so the
 /// first update has usage percentages.
-pub fn spawn(ui: Weak<AppWindow>, mut monitor: Monitor) {
+pub fn spawn(app: &AppWindow, mut monitor: Monitor) {
+    // Chart window chosen on the System Monitor page, in minutes.
+    let window = Arc::new(AtomicU32::new(1));
+    let chosen = Arc::clone(&window);
+    app.global::<Live>().on_set_history_minutes(move |minutes| {
+        chosen.store(u32::try_from(minutes).unwrap_or(1), Ordering::Relaxed);
+    });
+
+    let ui = app.as_weak();
     let spawned = thread::Builder::new()
         .name("monitor".to_owned())
         .spawn(move || {
             let mut formatter = Formatter::default();
             loop {
                 thread::sleep(INTERVAL);
+                formatter.window_minutes = window.load(Ordering::Relaxed);
                 let view = formatter.live(&monitor.sample());
                 if ui
                     .upgrade_in_event_loop(move |ui| apply(&ui, &view))

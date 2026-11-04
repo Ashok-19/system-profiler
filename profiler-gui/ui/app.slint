@@ -12,6 +12,8 @@ import { HomePage } from "pages/home.slint";
 import { OperatingModePage } from "pages/operating-mode.slint";
 import { BatteryCarePage } from "pages/battery-care.slint";
 import { KeyboardLightingPage } from "pages/keyboard-lighting.slint";
+import { SystemMonitorPage } from "pages/system-monitor.slint";
+import { SystemInformationPage } from "pages/system-information.slint";
 import { PlaceholderPage } from "pages/placeholder.slint";
 
 export { Theme, Live, Machine, Device, Lighting }
@@ -276,9 +278,10 @@ export component AppWindow inherits Window {
 
     in-out property <Page> page: Page.home;
     in property <bool> compact-sidebar;
+    in property <string> app-version;
 
     property <bool> page-built: page == Page.home || page == Page.operating-mode || page == Page.battery-care
-        || page == Page.keyboard-lighting;
+        || page == Page.keyboard-lighting || page == Page.system-monitor || page == Page.system-information;
     out property <string> page-title: page == Page.home ? "Home"
         : page == Page.operating-mode ? "Operating Mode"
         : page == Page.gpu-mode ? "GPU Mode"
@@ -327,6 +330,8 @@ export component AppWindow inherits Window {
                         if root.page == Page.operating-mode: OperatingModePage { }
                         if root.page == Page.battery-care: BatteryCarePage { }
                         if root.page == Page.keyboard-lighting: KeyboardLightingPage { }
+                        if root.page == Page.system-monitor: SystemMonitorPage { }
+                        if root.page == Page.system-information: SystemInformationPage { app-version: root.app-version; }
                         if !root.page-built: PlaceholderPage { title: root.page-title; }
                     }
                 }
