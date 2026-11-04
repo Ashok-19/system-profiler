@@ -1,7 +1,8 @@
 import { Theme } from "../theme.slint";
 import { Icons } from "../icons.slint";
 import { Live, Machine, Device, MonitorPanel } from "../state.slint";
-import { SectionHeader, MetricBar, KeyValue, ModeTab, Select } from "../widgets/common.slint";
+import { SectionHeader, MetricBar, KeyValue, Select } from "../widgets/common.slint";
+import { OperatingModeTabs } from "../widgets/mode.slint";
 
 // Stylised laptop drawn from primitives (no product artwork).
 component LaptopHero inherits VerticalLayout {
@@ -224,39 +225,7 @@ export component HomePage inherits HorizontalLayout {
             SectionHeader { title: "Operating Mode"; }
             HorizontalLayout {
                 padding-left: 20px;
-                Rectangle {
-                    Rectangle {
-                        y: parent.height - 1px;
-                        height: 1px;
-                        background: Theme.line;
-                    }
-
-                    HorizontalLayout {
-                        ModeTab {
-                            label: "Silent";
-                            icon: Icons.silent;
-                            selected: Device.mode == 0;
-                            enabled: Device.daemon-ok;
-                            clicked => { Device.mode = 0; Device.set-mode(0); }
-                        }
-
-                        ModeTab {
-                            label: "Performance";
-                            icon: Icons.performance;
-                            selected: Device.mode == 1;
-                            enabled: Device.daemon-ok;
-                            clicked => { Device.mode = 1; Device.set-mode(1); }
-                        }
-
-                        ModeTab {
-                            label: "Turbo";
-                            icon: Icons.turbo;
-                            selected: Device.mode == 2;
-                            enabled: Device.daemon-ok;
-                            clicked => { Device.mode = 2; Device.set-mode(2); }
-                        }
-                    }
-                }
+                OperatingModeTabs { }
             }
         }
     }
