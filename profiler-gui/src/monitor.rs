@@ -8,10 +8,10 @@ use slint::{ComponentHandle, Model, ModelRc, VecModel};
 use sys_monitor::Monitor;
 
 use crate::alerts::{Alerts, Reading, Wanted};
-use crate::notify;
 use crate::shared::Shared;
 use crate::view::{ChartView, FactView, Formatter, LiveView, PanelView, SensorView};
 use crate::{AppWindow, Chart, Fact, Live, Metric, MonitorPanel, Sensor, SensorRow};
+use crate::{notify, screen};
 
 fn metrics(panel: &PanelView) -> Vec<Metric> {
     panel
@@ -167,6 +167,7 @@ pub fn spawn(app: &AppWindow, mut monitor: Monitor, shared: &Arc<Shared>) {
         .spawn(move || {
             let mut formatter = Formatter::default();
             let mut alerts = Alerts::default();
+            let mut last_ac = None;
             loop {
                 let interval = shared.interval_s().max(1);
                 thread::sleep(Duration::from_secs(u64::from(interval)));
@@ -191,6 +192,15 @@ pub fn spawn(app: &AppWindow, mut monitor: Monitor, shared: &Arc<Shared>) {
                 };
                 for alert in alerts.check(reading, wanted) {
                     notify::show(alert.tag, &alert.summary, &alert.body);
+                }
+                if let (Some(before), Some(now)) = (last_ac, reading.on_ac)
+                    && before != now
+                    && shared.battery_60hz()
+                {
+                    screen::follow_power(now);
+                }
+                if reading.on_ac.is_some() {
+                    last_ac = reading.on_ac;
                 }
 
                 let view = formatter.live(&snapshot);

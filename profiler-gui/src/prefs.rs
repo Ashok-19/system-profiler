@@ -38,6 +38,7 @@ fn show(ui: &AppWindow, c: &Config) {
     p.set_notify_mode(c.notify_mode);
     p.set_notify_power(c.notify_power);
     p.set_hot_cpu(i32::from(c.hot_cpu_c));
+    p.set_battery_60hz(c.battery_60hz);
 }
 
 /// Hand the settings the worker threads use over to them.
@@ -47,6 +48,7 @@ fn share(c: &Config, shared: &Shared) {
     shared.set_notify_mode(c.notify_mode);
     shared.set_notify_power(c.notify_power);
     shared.set_hot_cpu_c(u32::from(c.hot_cpu_c));
+    shared.set_battery_60hz(c.battery_60hz);
 }
 
 fn read(ui: &AppWindow) -> Config {
@@ -67,6 +69,7 @@ fn read(ui: &AppWindow) -> Config {
         notify_mode: p.get_notify_mode(),
         notify_power: p.get_notify_power(),
         hot_cpu_c: byte(p.get_hot_cpu()),
+        battery_60hz: p.get_battery_60hz(),
     }
     .sanitized()
 }

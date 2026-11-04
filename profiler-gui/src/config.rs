@@ -41,6 +41,8 @@ pub struct Config {
     pub notify_power: bool,
     /// Warn when the CPU is hotter than this (°C); 0 = never.
     pub hot_cpu_c: u8,
+    /// Slowest panel refresh rate on battery, fastest on AC.
+    pub battery_60hz: bool,
 }
 
 impl Default for Config {
@@ -60,6 +62,7 @@ impl Default for Config {
             notify_mode: true,
             notify_power: false,
             hot_cpu_c: 0,
+            battery_60hz: false,
         }
     }
 }
@@ -201,6 +204,7 @@ mod tests {
             notify_mode: false,
             notify_power: true,
             hot_cpu_c: 95,
+            battery_60hz: true,
         };
         save(&path, &config).unwrap();
         assert_eq!(load(&path), config);

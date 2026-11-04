@@ -22,6 +22,8 @@ export global Prefs {
     in-out property <bool> notify-power;
     // Warn above this CPU temperature in °C; 0 = never.
     in-out property <int> hot-cpu;
+    // Display page: slowest refresh rate on battery, fastest on AC.
+    in-out property <bool> battery-60hz;
     // Mirrors the XDG autostart entry; changed through set-autostart.
     in property <bool> autostart;
     callback set-autostart(bool);
