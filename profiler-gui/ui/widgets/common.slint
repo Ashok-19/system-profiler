@@ -639,3 +639,107 @@ export component StepSlider inherits HorizontalLayout {
         vertical-alignment: center;
     }
 }
+
+// Row of joined buttons; one is selected.
+export component Segmented inherits HorizontalLayout {
+    in property <[string]> options;
+    in property <int> current: -1;
+    in property <bool> enabled: true;
+    callback selected(int);
+
+    spacing: -1px;
+    for option[index] in root.options: Rectangle {
+        property <bool> on: index == root.current;
+        min-width: 0px;
+        preferred-width: 1px;
+        horizontal-stretch: 1;
+        height: 36px;
+        border-width: 1px;
+        border-color: self.on ? Theme.accent : #5a5a5a;
+        background: self.on
+            ? @linear-gradient(0deg, Theme.accent.with-alpha(0.38 * Theme.glow) 0%, Theme.accent.with-alpha(0.06) 100%)
+            : touch.has-hover && root.enabled ? #1c1c1c : Theme.control-bg;
+        opacity: root.enabled ? 1 : 0.5;
+        accessible-role: button;
+        accessible-label: option;
+        accessible-checked: self.on;
+        accessible-action-default => { if root.enabled { root.selected(index); } }
+
+        touch := TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: pointer;
+            clicked => { root.selected(index); }
+        }
+
+        Text {
+            text: option;
+            font-size: 13px;
+            color: parent.on ? Theme.text-strong : #cfcfcf;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// Outlined panel with bright corner brackets.
+export component BracketPanel inherits Rectangle {
+    background: Theme.panel;
+    border-width: 1px;
+    border-color: Theme.border;
+    border-radius: Theme.radius;
+
+    Path {
+        x: 0;
+        y: 0;
+        width: 12px;
+        height: 12px;
+        viewbox-width: 12;
+        viewbox-height: 12;
+        commands: "M1 12 L1 1 L12 1";
+        stroke: #e6e6e6;
+        stroke-width: 2px;
+    }
+
+    Path {
+        x: parent.width - 12px;
+        y: 0;
+        width: 12px;
+        height: 12px;
+        viewbox-width: 12;
+        viewbox-height: 12;
+        commands: "M0 1 L11 1 L11 12";
+        stroke: #e6e6e6;
+        stroke-width: 2px;
+    }
+
+    Path {
+        x: 0;
+        y: parent.height - 12px;
+        width: 12px;
+        height: 12px;
+        viewbox-width: 12;
+        viewbox-height: 12;
+        commands: "M1 0 L1 11 L12 11";
+        stroke: #e6e6e6;
+        stroke-width: 2px;
+    }
+
+    Path {
+        x: parent.width - 12px;
+        y: parent.height - 12px;
+        width: 12px;
+        height: 12px;
+        viewbox-width: 12;
+        viewbox-height: 12;
+        commands: "M0 11 L11 11 L11 0";
+        stroke: #e6e6e6;
+        stroke-width: 2px;
+    }
+
+    VerticalLayout {
+        padding: 22px;
+        spacing: 20px;
+        alignment: start;
+        @children
+    }
+}
