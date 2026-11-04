@@ -2,6 +2,7 @@
 //! writes them whenever the user changes a setting.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::{Mutex, PoisonError};
 
 #[derive(Debug)]
 pub struct Shared {
@@ -15,6 +16,9 @@ pub struct Shared {
     /// Warn above this CPU temperature (°C); 0 = never.
     hot_cpu_c: AtomicU32,
     battery_60hz: AtomicBool,
+    auto_profiles: AtomicBool,
+    /// Trigger apps per profile; empty for disabled or manual ones.
+    triggers: Mutex<Vec<Vec<String>>>,
 }
 
 impl Default for Shared {
@@ -27,6 +31,8 @@ impl Default for Shared {
             notify_power: AtomicBool::new(false),
             hot_cpu_c: AtomicU32::new(0),
             battery_60hz: AtomicBool::new(false),
+            auto_profiles: AtomicBool::new(false),
+            triggers: Mutex::default(),
         }
     }
 }
@@ -56,4 +62,18 @@ accessors! {
     notify_power, set_notify_power: bool;
     hot_cpu_c, set_hot_cpu_c: u32;
     battery_60hz, set_battery_60hz: bool;
+    auto_profiles, set_auto_profiles: bool;
+}
+
+impl Shared {
+    pub fn triggers(&self) -> Vec<Vec<String>> {
+        self.triggers
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    pub fn set_triggers(&self, triggers: Vec<Vec<String>>) {
+        *self.triggers.lock().unwrap_or_else(PoisonError::into_inner) = triggers;
+    }
 }

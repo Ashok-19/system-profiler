@@ -43,6 +43,114 @@ pub struct Config {
     pub hot_cpu_c: u8,
     /// Slowest panel refresh rate on battery, fastest on AC.
     pub battery_60hz: bool,
+
+    /// Scenario Profiles, in display order.
+    pub profiles: Vec<Profile>,
+    /// Apply a profile while one of its apps runs.
+    pub auto_profiles: bool,
+}
+
+/// A scenario profile. Each setting is optional; "keep" leaves it as is.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Profile {
+    pub name: String,
+    /// Considered for automatic switching.
+    pub enabled: bool,
+    /// Process names that trigger the profile, e.g. `steam`.
+    pub apps: Vec<String>,
+    /// -1 keep, 0 Silent, 1 Performance, 2 Turbo.
+    pub mode: i8,
+    /// 0 keep, else the charge limit in percent.
+    pub charge_limit: u8,
+    /// -1 keep, 0 fastest, 1 slowest.
+    pub refresh: i8,
+    /// -1 keep, 0 off .. 3 high.
+    pub keyboard: i8,
+}
+
+impl Default for Profile {
+    fn default() -> Self {
+        Self {
+            name: "New Profile".to_owned(),
+            enabled: true,
+            apps: Vec::new(),
+            mode: -1,
+            charge_limit: 0,
+            refresh: -1,
+            keyboard: -1,
+        }
+    }
+}
+
+impl Profile {
+    /// Clamp values a hand-edited file might get wrong.
+    #[must_use]
+    pub fn sanitized(mut self) -> Self {
+        if !(-1..=2).contains(&self.mode) {
+            self.mode = -1;
+        }
+        if self.charge_limit != 0 && !(20..=100).contains(&self.charge_limit) {
+            self.charge_limit = 0;
+        }
+        if !(-1..=1).contains(&self.refresh) {
+            self.refresh = -1;
+        }
+        if !(-1..=3).contains(&self.keyboard) {
+            self.keyboard = -1;
+        }
+        self.apps.retain(|a| !a.trim().is_empty());
+        self
+    }
+}
+
+fn profile(name: &str, apps: &[&str], mode: i8, refresh: i8, keyboard: i8) -> Profile {
+    Profile {
+        name: name.to_owned(),
+        enabled: !apps.is_empty(),
+        apps: apps.iter().map(|&a| a.to_owned()).collect(),
+        mode,
+        refresh,
+        keyboard,
+        ..Profile::default()
+    }
+}
+
+/// The starter set, in the spirit of Armoury Crate's scenarios.
+pub fn default_profiles() -> Vec<Profile> {
+    vec![
+        profile(
+            "Gaming",
+            &[
+                "steam", "lutris", "heroic",
+            ],
+            2,
+            0,
+            -1,
+        ),
+        profile(
+            "Work",
+            &[
+                "code", "soffice.bin",
+            ],
+            1,
+            -1,
+            -1,
+        ),
+        profile(
+            "Movie Night",
+            &[
+                "vlc", "mpv", "totem",
+            ],
+            0,
+            -1,
+            0,
+        ),
+        Profile {
+            charge_limit: 100,
+            ..profile("On the Go", &[], 0, 1, 0)
+        },
+    ]
 }
 
 impl Default for Config {
@@ -63,6 +171,8 @@ impl Default for Config {
             notify_power: false,
             hot_cpu_c: 0,
             battery_60hz: false,
+            profiles: default_profiles(),
+            auto_profiles: false,
         }
     }
 }
@@ -112,6 +222,7 @@ impl Config {
         {
             self.hot_cpu_c = 0;
         }
+        self.profiles = self.profiles.into_iter().map(Profile::sanitized).collect();
         self
     }
 }
@@ -205,6 +316,15 @@ mod tests {
             notify_power: true,
             hot_cpu_c: 95,
             battery_60hz: true,
+            profiles: vec![
+                Profile {
+                    name: "Mine".to_owned(),
+                    apps: vec!["blender".to_owned()],
+                    mode: 2,
+                    ..Profile::default()
+                },
+            ],
+            auto_profiles: true,
         };
         save(&path, &config).unwrap();
         assert_eq!(load(&path), config);
@@ -249,6 +369,33 @@ mod tests {
         assert!(!reset.compact);
         assert!(reset.fahrenheit);
         assert_eq!(reset.hot_cpu_c, 95);
+    }
+
+    #[test]
+    fn profiles() {
+        let defaults = default_profiles();
+        assert_eq!(defaults.len(), 4);
+        assert!(
+            defaults[0].enabled && !defaults[3].enabled,
+            "manual ones off"
+        );
+        let bad = Profile {
+            mode: 7,
+            charge_limit: 5,
+            refresh: 3,
+            keyboard: -4,
+            apps: vec![
+                " ".to_owned(),
+                "mpv".to_owned(),
+            ],
+            ..Profile::default()
+        }
+        .sanitized();
+        assert_eq!(
+            (bad.mode, bad.charge_limit, bad.refresh, bad.keyboard),
+            (-1, 0, -1, -1)
+        );
+        assert_eq!(bad.apps, ["mpv"]);
     }
 
     #[test]

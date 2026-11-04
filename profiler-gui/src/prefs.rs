@@ -9,7 +9,7 @@ use slint::{Color, ComponentHandle};
 use crate::config::{self, Config};
 use crate::shared::Shared;
 use crate::{AppWindow, Prefs};
-use crate::{autostart, notify};
+use crate::{autostart, notify, profiles};
 
 fn colour_hex(c: Color) -> String {
     config::to_hex((c.red(), c.green(), c.blue()))
@@ -39,6 +39,7 @@ fn show(ui: &AppWindow, c: &Config) {
     p.set_notify_power(c.notify_power);
     p.set_hot_cpu(i32::from(c.hot_cpu_c));
     p.set_battery_60hz(c.battery_60hz);
+    profiles::show(ui, &c.profiles, c.auto_profiles);
 }
 
 /// Hand the settings the worker threads use over to them.
@@ -49,6 +50,8 @@ fn share(c: &Config, shared: &Shared) {
     shared.set_notify_power(c.notify_power);
     shared.set_hot_cpu_c(u32::from(c.hot_cpu_c));
     shared.set_battery_60hz(c.battery_60hz);
+    shared.set_auto_profiles(c.auto_profiles);
+    shared.set_triggers(profiles::triggers(&c.profiles));
 }
 
 fn read(ui: &AppWindow) -> Config {
@@ -70,6 +73,8 @@ fn read(ui: &AppWindow) -> Config {
         notify_power: p.get_notify_power(),
         hot_cpu_c: byte(p.get_hot_cpu()),
         battery_60hz: p.get_battery_60hz(),
+        profiles: profiles::read(ui),
+        auto_profiles: ui.global::<crate::Profiles>().get_auto(),
     }
     .sanitized()
 }
