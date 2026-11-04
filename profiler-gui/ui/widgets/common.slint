@@ -296,22 +296,36 @@ export component Select inherits Rectangle {
     }
 }
 
-// Row used in settings lists: label on the left, a control on the right.
+// Row used in settings lists: icon and label on the left, a control on
+// the right. Alternate rows set `shaded` for the Armoury striping.
 export component SettingRow inherits Rectangle {
+    in property <string> icon;
     in property <string> label;
     in property <string> sub;
     in property <bool> shaded;
     in property <bool> dimmed;
     min-height: Theme.row-height;
     background: root.shaded ? Theme.row : transparent;
-    opacity: root.dimmed ? 0.55 : 1;
     HorizontalLayout {
         padding-left: 18px;
         padding-right: 18px;
         spacing: 18px;
+        if root.icon != "": VerticalLayout {
+            alignment: center;
+            Icon {
+                data: root.icon;
+                size: 24px;
+                color: root.dimmed ? Theme.text-faint : #bdbdbd;
+                stroke-width: 1.4px;
+            }
+        }
+
         VerticalLayout {
             alignment: center;
             spacing: 2px;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            horizontal-stretch: 1;
             Text {
                 text: root.label;
                 font-size: 15px;
@@ -334,9 +348,58 @@ export component SettingRow inherits Rectangle {
     }
 }
 
-// Rectangular ON/OFF switch.
+// Section heading plus an indented column of rows.
+export component SettingsSection inherits VerticalLayout {
+    in property <string> title;
+    in property <string> hint;
+    spacing: 12px;
+    SectionHeader {
+        title: root.title;
+        hint: root.hint;
+    }
+
+    HorizontalLayout {
+        padding-left: 20px;
+        VerticalLayout {
+            @children
+        }
+    }
+}
+
+// Keyboard key, e.g. "Fn".
+export component KeyCap inherits Rectangle {
+    in property <string> text;
+    min-width: 30px;
+    height: 28px;
+    background: #1e1e1e;
+    border-width: 1px;
+    border-color: Theme.border;
+    border-radius: 3px;
+    Rectangle {
+        y: parent.height - 3px;
+        height: 3px;
+        background: Theme.border;
+    }
+
+    HorizontalLayout {
+        padding-left: 9px;
+        padding-right: 9px;
+        padding-bottom: 2px;
+        Text {
+            text: root.text;
+            font-size: 13px;
+            color: Theme.text-strong;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// Rectangular ON/OFF switch. `checked` is input only: the owner updates
+// it in `toggled`, so bindings to live state are never broken.
 export component Switch inherits Rectangle {
-    in-out property <bool> checked;
+    in property <bool> checked;
+    in property <bool> enabled: true;
     in property <string> label;
     callback toggled(bool);
 
@@ -346,17 +409,17 @@ export component Switch inherits Rectangle {
     border-width: 1px;
     border-color: root.checked ? Theme.text : #6a6a6a;
     border-radius: Theme.radius;
+    opacity: root.enabled ? 1 : 0.5;
     accessible-role: switch;
     accessible-label: root.label;
     accessible-checked: root.checked;
-    accessible-action-default => { root.checked = !root.checked; root.toggled(root.checked); }
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.toggled(!root.checked); } }
 
     TouchArea {
+        enabled: root.enabled;
         mouse-cursor: pointer;
-        clicked => {
-            root.checked = !root.checked;
-            root.toggled(root.checked);
-        }
+        clicked => { root.toggled(!root.checked); }
     }
 
     Text {
@@ -376,7 +439,6 @@ export component Switch inherits Rectangle {
         height: parent.height - 6px;
         border-radius: Theme.radius / 2;
         background: root.checked ? Theme.accent : #6a6a6a;
-        animate x { duration: 150ms; }
     }
 }
 

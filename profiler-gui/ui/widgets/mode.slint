@@ -1,0 +1,46 @@
+import { Theme } from "../theme.slint";
+import { Icons } from "../icons.slint";
+import { Device } from "../state.slint";
+import { ModeTab } from "common.slint";
+
+// Silent / Performance / Turbo strip, bound to asusd.
+export component OperatingModeTabs inherits Rectangle {
+    in property <length> icon-size: 28px;
+
+    // Hairline under the strip; drawn first so the selected tab's
+    // underline covers it.
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: Theme.line;
+    }
+
+    HorizontalLayout {
+        ModeTab {
+            label: "Silent";
+            icon: Icons.silent;
+            icon-size: root.icon-size;
+            selected: Device.mode == 0;
+            enabled: Device.daemon-ok;
+            clicked => { Device.mode = 0; Device.set-mode(0); }
+        }
+
+        ModeTab {
+            label: "Performance";
+            icon: Icons.performance;
+            icon-size: root.icon-size;
+            selected: Device.mode == 1;
+            enabled: Device.daemon-ok;
+            clicked => { Device.mode = 1; Device.set-mode(1); }
+        }
+
+        ModeTab {
+            label: "Turbo";
+            icon: Icons.turbo;
+            icon-size: root.icon-size;
+            selected: Device.mode == 2;
+            enabled: Device.daemon-ok;
+            clicked => { Device.mode = 2; Device.set-mode(2); }
+        }
+    }
+}
