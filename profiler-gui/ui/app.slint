@@ -10,6 +10,7 @@ import { Live, Machine, Device } from "state.slint";
 import { NavItem, NavGroup } from "widgets/common.slint";
 import { HomePage } from "pages/home.slint";
 import { OperatingModePage } from "pages/operating-mode.slint";
+import { BatteryCarePage } from "pages/battery-care.slint";
 import { PlaceholderPage } from "pages/placeholder.slint";
 
 export { Theme, Live, Machine, Device }
@@ -275,6 +276,7 @@ export component AppWindow inherits Window {
     in-out property <Page> page: Page.home;
     in property <bool> compact-sidebar;
 
+    property <bool> page-built: page == Page.home || page == Page.operating-mode || page == Page.battery-care;
     out property <string> page-title: page == Page.home ? "Home"
         : page == Page.operating-mode ? "Operating Mode"
         : page == Page.gpu-mode ? "GPU Mode"
@@ -321,7 +323,8 @@ export component AppWindow inherits Window {
                         padding-bottom: 40px;
                         if root.page == Page.home: HomePage { }
                         if root.page == Page.operating-mode: OperatingModePage { }
-                        if root.page != Page.home && root.page != Page.operating-mode: PlaceholderPage { title: root.page-title; }
+                        if root.page == Page.battery-care: BatteryCarePage { }
+                        if !root.page-built: PlaceholderPage { title: root.page-title; }
                     }
                 }
             }

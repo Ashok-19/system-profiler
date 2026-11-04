@@ -6,7 +6,7 @@ use std::time::Duration;
 use slint::{ComponentHandle, Model, ModelRc, VecModel, Weak};
 use sys_monitor::Monitor;
 
-use crate::view::{Formatter, HomeView, PanelView};
+use crate::view::{FactView, Formatter, LiveView, PanelView};
 use crate::{AppWindow, Fact, Live, Metric, MonitorPanel};
 
 const INTERVAL: Duration = Duration::from_secs(1);
@@ -23,10 +23,8 @@ fn metrics(panel: &PanelView) -> Vec<Metric> {
         .collect()
 }
 
-fn facts(panel: &PanelView) -> Vec<Fact> {
-    panel
-        .rows
-        .iter()
+fn facts(rows: &[FactView]) -> Vec<Fact> {
+    rows.iter()
         .map(|f| Fact {
             key: f.key.as_str().into(),
             value: f.value.as_str().into(),
@@ -38,7 +36,7 @@ fn to_slint(panel: &PanelView) -> MonitorPanel {
     MonitorPanel {
         title: panel.title.as_str().into(),
         bars: ModelRc::new(VecModel::from(metrics(panel))),
-        rows: ModelRc::new(VecModel::from(facts(panel))),
+        rows: ModelRc::new(VecModel::from(facts(&panel.rows))),
     }
 }
 
@@ -79,18 +77,26 @@ fn sync_panels(live: &Live<'_>, panels: &[PanelView]) {
         };
         let in_place = row.title.as_str() == panel.title
             && sync_rows(&row.bars, metrics(panel))
-            && sync_rows(&row.rows, facts(panel));
+            && sync_rows(&row.rows, facts(&panel.rows));
         if !in_place {
             model.set_row_data(i, to_slint(panel));
         }
     }
 }
 
-fn apply(ui: &AppWindow, view: &HomeView) {
+fn apply(ui: &AppWindow, view: &LiveView) {
     let live = ui.global::<Live>();
     sync_panels(&live, &view.panels);
     live.set_battery_percent(view.battery_percent);
     live.set_on_ac(view.on_ac);
+    live.set_battery_status(view.battery.status.as_str().into());
+    let battery_facts = facts(&view.battery.facts);
+    let current = live.get_battery_facts();
+    if current.as_any().is::<VecModel<Fact>>() {
+        sync_rows(&current, battery_facts);
+    } else {
+        live.set_battery_facts(ModelRc::new(VecModel::from(battery_facts)));
+    }
 }
 
 /// Sample sensors on a background thread and push them to the UI until the
@@ -103,7 +109,7 @@ pub fn spawn(ui: Weak<AppWindow>, mut monitor: Monitor) {
             let mut formatter = Formatter::default();
             loop {
                 thread::sleep(INTERVAL);
-                let view = formatter.home(&monitor.sample());
+                let view = formatter.live(&monitor.sample());
                 if ui
                     .upgrade_in_event_loop(move |ui| apply(&ui, &view))
                     .is_err()

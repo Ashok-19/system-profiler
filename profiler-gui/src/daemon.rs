@@ -12,6 +12,7 @@ use rog_dbus::zbus_platform::PlatformProxyBlocking;
 use rog_platform::cpu::CPUEPP;
 use rog_platform::platform::PlatformProfile;
 use slint::{ComponentHandle, Model, ModelRc, VecModel, Weak};
+use zbus::proxy::CacheProperties;
 
 use crate::{AppWindow, Device};
 
@@ -26,6 +27,7 @@ const MODES: usize = 3;
 enum Command {
     Mode(i32),
     ChargeLimit(u8),
+    OneShotCharge,
     AutoSwitch(bool),
     ModeOnAc(i32),
     ModeOnBattery(i32),
@@ -141,6 +143,7 @@ fn execute(proxy: &PlatformProxyBlocking<'_>, command: Command) {
             None => return,
         },
         Command::ChargeLimit(limit) => proxy.set_charge_control_end_threshold(limit),
+        Command::OneShotCharge => proxy.one_shot_full_charge(),
         Command::AutoSwitch(on) => proxy
             .set_change_platform_profile_on_ac(on)
             .and_then(|()| proxy.set_change_platform_profile_on_battery(on)),
@@ -192,8 +195,14 @@ fn publish(ui: &Weak<AppWindow>, state: DeviceState) -> bool {
 
 fn run(ui: &Weak<AppWindow>, commands: &Receiver<Command>) {
     loop {
-        let connection = zbus::blocking::Connection::system()
-            .and_then(|c| PlatformProxyBlocking::new(&c).map(|p| (c, p)));
+        // Uncached: asusd changes some properties (one-shot charge, limit
+        // restore on unplug, AC/battery switching) without announcing it.
+        let connection = zbus::blocking::Connection::system().and_then(|c| {
+            PlatformProxyBlocking::builder(&c)
+                .cache_properties(CacheProperties::No)
+                .build()
+                .map(|p| (c, p))
+        });
         let Ok((_connection, proxy)) = connection else {
             log::warn!("Cannot reach asusd on the system bus; retrying");
             if !publish(ui, DeviceState::disconnected()) {
@@ -243,6 +252,8 @@ pub fn spawn(ui: &AppWindow) {
             s(Command::ChargeLimit(limit));
         }
     });
+    let s = send(&tx);
+    device.on_one_shot_charge(move || s(Command::OneShotCharge));
     let s = send(&tx);
     device.on_set_auto_switch(move |on| s(Command::AutoSwitch(on)));
     let s = send(&tx);

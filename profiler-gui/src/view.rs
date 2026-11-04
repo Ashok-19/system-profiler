@@ -2,7 +2,7 @@
 //!
 //! Kept free of Slint types so the formatting can be unit-tested.
 
-use sys_monitor::{GpuStats, PowerState, Snapshot};
+use sys_monitor::{ChargeStatus, GpuStats, PowerState, PowerStats, Snapshot};
 
 /// Fans are drawn against this many RPM until a faster reading is seen.
 const FAN_SCALE_FLOOR_RPM: u32 = 5000;
@@ -31,13 +31,22 @@ pub struct PanelView {
     pub rows: Vec<FactView>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct BatteryView {
+    /// Line under the percentage, e.g. "On battery · 3 h 20 min left".
+    pub status: String,
+    pub facts: Vec<FactView>,
+}
+
+/// Everything the monitor thread refreshes each second.
 #[derive(Debug, Clone, PartialEq)]
-pub struct HomeView {
+pub struct LiveView {
     /// CPU, GPU, Fan, Memory, in that order.
     pub panels: Vec<PanelView>,
     /// -1 when there is no battery.
     pub battery_percent: i32,
     pub on_ac: bool,
+    pub battery: BatteryView,
 }
 
 fn metric(label: &str, value: String, percent: f32) -> MetricView {
@@ -76,6 +85,99 @@ fn gib(bytes: u64) -> f64 {
 #[allow(clippy::cast_precision_loss)] // display only
 fn mib(bytes: u64) -> f64 {
     bytes as f64 / MIB
+}
+
+/// "3 h 20 min", or "45 min" under an hour.
+fn duration(hours: f32) -> String {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // clamped
+    let minutes = (hours * 60.0).round().clamp(0.0, 6000.0) as u32;
+    match (minutes / 60, minutes % 60) {
+        (0, m) => format!("{m} min"),
+        (h, 0) => format!("{h} h"),
+        (h, m) => format!("{h} h {m} min"),
+    }
+}
+
+fn battery(power: &PowerStats) -> BatteryView {
+    let Some(b) = &power.battery else {
+        return BatteryView {
+            status: "No battery found".to_owned(),
+            facts: Vec::new(),
+        };
+    };
+    // Estimates swing wildly at very low power; hide implausible ones.
+    let left = b.hours_remaining().filter(|&h| h < 48.0).map(duration);
+    let status = match b.status {
+        ChargeStatus::Charging => left.map_or_else(
+            || "Charging".to_owned(),
+            |t| format!("Charging · full in {t}"),
+        ),
+        ChargeStatus::Discharging => left.map_or_else(
+            || "On battery".to_owned(),
+            |t| format!("On battery · {t} left"),
+        ),
+        ChargeStatus::Full => "Fully charged · on AC power".to_owned(),
+        ChargeStatus::NotCharging => b.charge_limit_percent.filter(|&l| l < 100).map_or_else(
+            || "Plugged in, not charging".to_owned(),
+            |l| format!("Held at the {l}% charge limit · on AC power"),
+        ),
+        ChargeStatus::Unknown => if power.ac_online.unwrap_or(true) {
+            "On AC power"
+        } else {
+            "On battery"
+        }
+        .to_owned(),
+    };
+
+    let mut facts = vec![
+        fact(
+            "Battery Health",
+            match (
+                b.health_percent(),
+                b.energy_full_wh,
+                b.energy_full_design_wh,
+            ) {
+                (Some(h), Some(full), Some(design)) => {
+                    format!("{h:.0}% ({full:.1} of {design:.1} Wh)")
+                }
+                _ => MISSING.to_owned(),
+            },
+        ),
+        fact(
+            "Charge Limit",
+            b.charge_limit_percent
+                .map_or_else(|| "Not supported".to_owned(), |l| format!("{l}%")),
+        ),
+    ];
+    let rate = match b.status {
+        ChargeStatus::Charging => Some("Charge Rate"),
+        ChargeStatus::Discharging => Some("Power Draw"),
+        _ => None,
+    };
+    if let (Some(key), Some(w)) = (rate, b.power_w.filter(|&w| w > 0.1)) {
+        facts.push(fact(key, format!("{w:.1} W")));
+    }
+    facts.push(fact(
+        "Charge Cycles",
+        // Many firmwares, including ASUS', always report 0.
+        b.cycle_count
+            .filter(|&c| c > 0)
+            .map_or_else(|| "Not reported".to_owned(), |c| c.to_string()),
+    ));
+    if let Some(v) = b.voltage_v {
+        facts.push(fact("Voltage", format!("{v:.2} V")));
+    }
+    let pack: Vec<&str> = [
+        b.model.as_deref(),
+        b.technology.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    if !pack.is_empty() {
+        facts.push(fact("Battery Pack", pack.join(" · ")));
+    }
+    BatteryView { status, facts }
 }
 
 /// `cpu_fan` -> `CPU Fan`, `gpu_fan` -> `GPU Fan`, `fan3` -> `Fan 3`.
@@ -129,15 +231,15 @@ fn discrete_state(gpus: &[GpuStats]) -> String {
     .to_owned()
 }
 
-/// Builds Home page views; remembers scale state between samples.
+/// Builds the live views; remembers scale state between samples.
 #[derive(Debug, Default)]
 pub struct Formatter {
     fan_max_rpm: u32,
 }
 
 impl Formatter {
-    pub fn home(&mut self, s: &Snapshot) -> HomeView {
-        HomeView {
+    pub fn live(&mut self, s: &Snapshot) -> LiveView {
+        LiveView {
             panels: vec![
                 Self::cpu(s),
                 Self::gpu(s),
@@ -151,6 +253,7 @@ impl Formatter {
                 .and_then(|b| b.capacity_percent)
                 .map_or(-1, i32::from),
             on_ac: s.power.ac_online.unwrap_or(true),
+            battery: battery(&s.power),
         }
     }
 
@@ -358,6 +461,8 @@ mod tests {
                     cycle_count: None,
                     charge_limit_percent: None,
                     voltage_v: None,
+                    model: None,
+                    technology: None,
                 }),
             },
             fans: vec![
@@ -393,7 +498,7 @@ mod tests {
 
     #[test]
     fn home_view() {
-        let v = Formatter::default().home(&snapshot());
+        let v = Formatter::default().live(&snapshot());
         assert_eq!(v.battery_percent, 80);
         assert!(!v.on_ac);
         let titles: Vec<&str> = v.panels.iter().map(|p| p.title.as_str()).collect();
@@ -434,11 +539,70 @@ mod tests {
         s.cpu = CpuStats::default();
         s.gpus.clear();
         s.power = PowerStats::default();
-        let v = Formatter::default().home(&s);
+        let v = Formatter::default().live(&s);
         assert_eq!(v.battery_percent, -1);
         assert!(v.on_ac);
         assert_eq!(v.panels[0].bars[0].value, "—");
         assert_eq!(row(&v.panels[1], "dGPU"), "Not present");
+    }
+
+    #[test]
+    fn battery_discharging() {
+        let mut s = snapshot();
+        let b = s.power.battery.as_mut().unwrap();
+        b.power_w = Some(15.0);
+        b.energy_now_wh = Some(50.0);
+        b.energy_full_wh = Some(64.5);
+        b.energy_full_design_wh = Some(90.0);
+        b.cycle_count = Some(0);
+        b.charge_limit_percent = Some(80);
+        b.voltage_v = Some(16.441);
+        b.model = Some("A32-K55".to_owned());
+        b.technology = Some("Li-ion".to_owned());
+        let v = Formatter::default().live(&s).battery;
+        assert_eq!(v.status, "On battery · 3 h 20 min left");
+        let keys: Vec<(&str, &str)> = v
+            .facts
+            .iter()
+            .map(|f| (f.key.as_str(), f.value.as_str()))
+            .collect();
+        assert_eq!(
+            keys,
+            [
+                ("Battery Health", "72% (64.5 of 90.0 Wh)"),
+                ("Charge Limit", "80%"),
+                ("Power Draw", "15.0 W"),
+                ("Charge Cycles", "Not reported"),
+                ("Voltage", "16.44 V"),
+                ("Battery Pack", "A32-K55 · Li-ion"),
+            ]
+        );
+    }
+
+    #[test]
+    fn battery_status_lines() {
+        let mut s = snapshot();
+        let b = s.power.battery.as_mut().unwrap();
+        b.status = ChargeStatus::NotCharging;
+        b.charge_limit_percent = Some(80);
+        assert_eq!(
+            Formatter::default().live(&s).battery.status,
+            "Held at the 80% charge limit · on AC power"
+        );
+        let b = s.power.battery.as_mut().unwrap();
+        b.status = ChargeStatus::Charging;
+        assert_eq!(Formatter::default().live(&s).battery.status, "Charging");
+        s.power.battery = None;
+        let v = Formatter::default().live(&s).battery;
+        assert_eq!(v.status, "No battery found");
+        assert!(v.facts.is_empty());
+    }
+
+    #[test]
+    fn durations() {
+        assert_eq!(duration(0.75), "45 min");
+        assert_eq!(duration(2.0), "2 h");
+        assert_eq!(duration(3.0 + 1.0 / 3.0), "3 h 20 min");
     }
 
     #[test]

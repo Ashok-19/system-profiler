@@ -23,6 +23,9 @@ export global Live {
     in property <[MonitorPanel]> panels;
     in property <int> battery-percent: -1;
     in property <bool> on-ac: true;
+    // Battery Care: one status line and the details list.
+    in property <string> battery-status;
+    in property <[Fact]> battery-facts;
 }
 
 // Static facts about this machine.
@@ -46,6 +49,10 @@ export global Device {
     // Battery charge limit in percent, -1 if unsupported.
     in-out property <int> charge-limit: -1;
     callback set-charge-limit(int);
+    // Charge to 100% once; asusd restores the limit when unplugged.
+    callback one-shot-charge();
+    // Limit in force before a one-shot charge (this session only), else -1.
+    in-out property <int> one-shot-from: -1;
 
     // Automatic switching when the power source changes (asusd applies it,
     // even while this app is closed). Modes use the same indices as `mode`.
