@@ -36,27 +36,29 @@ fn exec_arg(exe: &Path) -> String {
     }
 }
 
-fn entry(exe: &Path) -> String {
+fn entry(exe: &Path, minimized: bool) -> String {
     format!(
         "[Desktop Entry]\n\
          Type=Application\n\
          Name=System Profiler\n\
          Comment=ASUS laptop control center\n\
-         Exec={}\n\
+         Exec={}{}\n\
          Icon=system-profiler\n\
          Terminal=false\n\
          X-GNOME-Autostart-enabled=true\n",
-        exec_arg(exe)
+        exec_arg(exe),
+        if minimized { " --minimized" } else { "" }
     )
 }
 
-/// Create or remove the autostart entry for `exe`.
-pub fn set(path: &Path, enabled: bool, exe: &Path) -> io::Result<()> {
+/// Create or remove the autostart entry for `exe`, optionally starting
+/// hidden in the tray.
+pub fn set(path: &Path, enabled: bool, exe: &Path, minimized: bool) -> io::Result<()> {
     if enabled {
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir)?;
         }
-        fs::write(path, entry(exe))
+        fs::write(path, entry(exe, minimized))
     } else {
         match fs::remove_file(path) {
             Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
@@ -74,13 +76,19 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("profiler-autostart-{}", std::process::id()));
         let path = dir.join("autostart").join("system-profiler.desktop");
         assert!(!is_enabled(&path));
-        set(&path, true, Path::new("/usr/bin/system-profiler")).unwrap();
+        set(&path, true, Path::new("/usr/bin/system-profiler"), false).unwrap();
         assert!(is_enabled(&path));
         let text = fs::read_to_string(&path).unwrap();
         assert!(text.contains("\nExec=/usr/bin/system-profiler\n"), "{text}");
-        set(&path, false, Path::new("/unused")).unwrap();
+        set(&path, true, Path::new("/usr/bin/system-profiler"), true).unwrap();
+        let text = fs::read_to_string(&path).unwrap();
+        assert!(
+            text.contains("\nExec=/usr/bin/system-profiler --minimized\n"),
+            "{text}"
+        );
+        set(&path, false, Path::new("/unused"), false).unwrap();
         assert!(!is_enabled(&path));
-        set(&path, false, Path::new("/unused")).unwrap();
+        set(&path, false, Path::new("/unused"), false).unwrap();
         fs::remove_dir_all(dir).unwrap();
     }
 

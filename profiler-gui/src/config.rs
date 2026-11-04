@@ -48,6 +48,10 @@ pub struct Config {
     pub profiles: Vec<Profile>,
     /// Apply a profile while one of its apps runs.
     pub auto_profiles: bool,
+    /// Closing the window hides it to the tray instead of quitting.
+    pub keep_in_tray: bool,
+    /// Start hidden in the tray when launched with the session.
+    pub start_minimized: bool,
 }
 
 /// A scenario profile. Each setting is optional; "keep" leaves it as is.
@@ -173,6 +177,8 @@ impl Default for Config {
             battery_60hz: false,
             profiles: default_profiles(),
             auto_profiles: false,
+            keep_in_tray: true,
+            start_minimized: false,
         }
     }
 }
@@ -325,6 +331,8 @@ mod tests {
                 },
             ],
             auto_profiles: true,
+            keep_in_tray: false,
+            start_minimized: true,
         };
         save(&path, &config).unwrap();
         assert_eq!(load(&path), config);

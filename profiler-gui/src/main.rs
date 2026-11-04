@@ -8,6 +8,7 @@ mod display;
 mod gpu_mode;
 mod graphics;
 mod history;
+mod instance;
 mod machine;
 mod monitor;
 mod notify;
@@ -15,6 +16,8 @@ mod prefs;
 mod profiles;
 mod screen;
 mod shared;
+mod tray;
+mod tray_icon;
 mod view;
 
 use std::sync::Arc;
@@ -33,6 +36,12 @@ fn main() -> Result<(), slint::PlatformError> {
         .format_timestamp(None)
         .init();
 
+    // A second launch just brings the running instance's window up.
+    if instance::hand_over_to_running() {
+        return Ok(());
+    }
+    let start_hidden = std::env::args().skip(1).any(|a| a == "--minimized");
+
     // The software renderer needs ~30 MiB of RAM; OpenGL needs ~110 MiB for
     // the same window. `SLINT_BACKEND` still overrides this for testing.
     if std::env::var_os("SLINT_BACKEND").is_none() {
@@ -46,6 +55,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.set_app_version(env!("CARGO_PKG_VERSION").into());
     let shared = Arc::new(Shared::default());
     prefs::install(&ui, &shared);
+    let _instance = instance::claim(&ui);
 
     let mut monitor = Monitor::new();
     let first = monitor.sample();
@@ -76,5 +86,24 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.global::<Screen>().invoke_refresh();
     gpu_mode::wire(&ui);
 
-    ui.run()
+    let accent = ui.global::<Prefs>().get_accent();
+    let has_tray = tray::spawn(&ui, (accent.red(), accent.green(), accent.blue()));
+    ui.global::<Prefs>().set_tray_available(has_tray);
+    let weak = ui.as_weak();
+    ui.window().on_close_requested(move || {
+        let keep = has_tray
+            && weak
+                .upgrade()
+                .is_some_and(|ui| ui.global::<Prefs>().get_keep_in_tray());
+        if !keep {
+            let _ = slint::quit_event_loop();
+        }
+        slint::CloseRequestResponse::HideWindow
+    });
+
+    // Without a tray, a hidden window could never be reopened.
+    if !(start_hidden && has_tray) {
+        ui.show()?;
+    }
+    slint::run_event_loop_until_quit()
 }

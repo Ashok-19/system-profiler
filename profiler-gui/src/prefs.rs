@@ -9,7 +9,11 @@ use slint::{Color, ComponentHandle};
 use crate::config::{self, Config};
 use crate::shared::Shared;
 use crate::{AppWindow, Prefs};
-use crate::{autostart, notify, profiles};
+use crate::{autostart, notify, profiles, tray};
+
+fn current_exe() -> std::path::PathBuf {
+    std::env::current_exe().unwrap_or_else(|_| "system-profiler".into())
+}
 
 fn colour_hex(c: Color) -> String {
     config::to_hex((c.red(), c.green(), c.blue()))
@@ -40,6 +44,8 @@ fn show(ui: &AppWindow, c: &Config) {
     p.set_hot_cpu(i32::from(c.hot_cpu_c));
     p.set_battery_60hz(c.battery_60hz);
     profiles::show(ui, &c.profiles, c.auto_profiles);
+    p.set_keep_in_tray(c.keep_in_tray);
+    p.set_start_minimized(c.start_minimized);
 }
 
 /// Hand the settings the worker threads use over to them.
@@ -75,6 +81,8 @@ fn read(ui: &AppWindow) -> Config {
         battery_60hz: p.get_battery_60hz(),
         profiles: profiles::read(ui),
         auto_profiles: ui.global::<crate::Profiles>().get_auto(),
+        keep_in_tray: p.get_keep_in_tray(),
+        start_minimized: p.get_start_minimized(),
     }
     .sanitized()
 }
@@ -88,8 +96,14 @@ pub fn install(ui: &AppWindow, shared: &Arc<Shared>) {
 
     let save = {
         let shared = Arc::clone(shared);
+        let entry = autostart::default_path();
         move |config: &Config| {
             share(config, &shared);
+            tray::set_accent(config::parse_hex(&config.accent).unwrap_or((255, 165, 26)));
+            // Keep the autostart entry's --minimized in step.
+            if autostart::is_enabled(&entry) {
+                let _ = autostart::set(&entry, true, &current_exe(), config.start_minimized);
+            }
             if let Err(e) = config::save(&path, config) {
                 log::warn!("Cannot save {}: {e}", path.display());
             }
@@ -121,8 +135,10 @@ pub fn install(ui: &AppWindow, shared: &Arc<Shared>) {
     prefs.set_autostart(autostart::is_enabled(&entry));
     let weak = ui.as_weak();
     prefs.on_set_autostart(move |on| {
-        let exe = std::env::current_exe().unwrap_or_else(|_| "system-profiler".into());
-        if let Err(e) = autostart::set(&entry, on, &exe) {
+        let minimized = weak
+            .upgrade()
+            .is_some_and(|ui| ui.global::<Prefs>().get_start_minimized());
+        if let Err(e) = autostart::set(&entry, on, &current_exe(), minimized) {
             log::warn!("Cannot update {}: {e}", entry.display());
         }
         if let Some(ui) = weak.upgrade() {

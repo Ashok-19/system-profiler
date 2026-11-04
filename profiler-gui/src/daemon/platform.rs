@@ -201,6 +201,7 @@ pub fn execute(proxy: &PlatformProxyBlocking<'_>, command: Command) {
 
 /// Show `state` in the Device global. Runs on the UI thread.
 pub fn apply(ui: &AppWindow, state: State) {
+    crate::tray::set_state(state.mode, state.charge_limit);
     let device = ui.global::<Device>();
     device.set_daemon_ok(state.version.is_some());
     device.set_daemon_version(state.version.unwrap_or_default().into());
