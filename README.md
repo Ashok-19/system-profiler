@@ -8,10 +8,43 @@
 > Fork-specific changes:
 > - Ubuntu 24.04 treated as a supported build target.
 > - X11 enabled for the GUI by default.
-> - A redesigned GUI with live system monitoring (planned).
+> - **System Profiler**, a new control center app (see below).
 >
 > Upstream is tracked as the `upstream` git remote and merged in regularly.
-> Everything below this note is upstream's documentation unless marked otherwise.
+> Everything below the System Profiler section is upstream's documentation
+> unless marked otherwise.
+
+## System Profiler
+
+`system-profiler` (crate `profiler-gui`) is an Armoury Crate–style app built on
+asusd. It needs asusd running and an X11 session.
+
+| Page | What it does |
+|---|---|
+| Home | Live CPU, GPU, fan and memory readings; mode and charge limit |
+| Operating Mode | Silent / Performance / Turbo, switching on AC or battery, CPU energy preference per mode |
+| GPU Mode | dGPU state, apps using it, runtime power management |
+| Battery Care | Health, charge-limit presets, custom limit, one-time full charge |
+| Display | Refresh rate, slowest rate on battery, touchpad on/off |
+| Keyboard Lighting | Effects, colour, speed, brightness, when the backlight is lit |
+| Scenario Profiles | Presets that apply automatically while chosen apps run |
+| System Monitor | 1/5/15-minute charts and every sensor |
+| System Information | Model, BIOS, CPU, GPUs, panel, memory, battery, OS |
+| Personalization | Accent, background, glow, corners, density, text size |
+| Settings | °C/°F, update interval, autostart, tray, notifications |
+
+It lives in the tray when its window is closed, and a second launch shows the
+running instance. Idle use is about 30 MiB of RAM and 0.3–2% of one CPU core,
+depending on the page and the update interval. Preferences are stored in
+`~/.config/system-profiler/config.ron`.
+
+`make` builds it with everything else; `sudo make install` installs the
+binary, a menu entry and its icon. To run it from a checkout instead:
+`cargo run --release -p profiler-gui`.
+
+Not available yet: GPU Eco/Optimized (on kernel 6.8 the NVIDIA driver stays
+loaded during a PRIME on-demand session, so it needs a switch at boot) and a
+CPU frequency cap (needs a privileged helper).
 
 ---
 
