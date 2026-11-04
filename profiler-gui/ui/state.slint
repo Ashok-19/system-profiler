@@ -135,3 +135,25 @@ export global Lighting {
     // Sends the four on-* flags together.
     callback apply-power();
 }
+
+// Built-in panel and touchpad (Display page). Filled by `refresh`, which
+// the page calls when it opens.
+export global Screen {
+    in property <bool> available;
+    in property <string> output;
+    in property <string> resolution;
+    // Diagonal, e.g. "15.5″".
+    in property <string> size;
+    // Distinct refresh rates, fastest first, e.g. "144 Hz".
+    in property <[string]> rates;
+    in-out property <int> current: -1;
+    // A command is running.
+    in-out property <bool> busy;
+    callback refresh();
+    callback set-rate(int);
+
+    in property <bool> has-touchpad;
+    in property <string> touchpad-name;
+    in-out property <bool> touchpad-on;
+    callback set-touchpad(bool);
+}

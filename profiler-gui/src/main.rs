@@ -4,11 +4,13 @@ mod alerts;
 mod autostart;
 mod config;
 mod daemon;
+mod display;
 mod history;
 mod machine;
 mod monitor;
 mod notify;
 mod prefs;
+mod screen;
 mod shared;
 mod view;
 
@@ -64,6 +66,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     monitor::spawn(&ui, monitor, &shared);
     daemon::spawn(&ui, &shared);
+    screen::wire(&ui);
 
     ui.run()
 }

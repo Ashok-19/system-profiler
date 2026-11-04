@@ -6,7 +6,7 @@ import "../fonts/Michroma-Regular.ttf";
 
 import { Theme, Prefs } from "theme.slint";
 import { Icons, Icon } from "icons.slint";
-import { Live, Machine, Device, Lighting } from "state.slint";
+import { Live, Machine, Device, Lighting, Screen } from "state.slint";
 import { NavItem, NavGroup } from "widgets/common.slint";
 import { HomePage } from "pages/home.slint";
 import { OperatingModePage } from "pages/operating-mode.slint";
@@ -16,9 +16,10 @@ import { SystemMonitorPage } from "pages/system-monitor.slint";
 import { SystemInformationPage } from "pages/system-information.slint";
 import { PersonalizationPage } from "pages/personalization.slint";
 import { SettingsPage } from "pages/settings.slint";
+import { DisplayPage } from "pages/display.slint";
 import { PlaceholderPage } from "pages/placeholder.slint";
 
-export { Theme, Prefs, Live, Machine, Device, Lighting }
+export { Theme, Prefs, Live, Machine, Device, Lighting, Screen }
 
 export enum Page {
     home,
@@ -283,7 +284,7 @@ export component AppWindow inherits Window {
 
     property <bool> page-built: page == Page.home || page == Page.operating-mode || page == Page.battery-care
         || page == Page.keyboard-lighting || page == Page.system-monitor || page == Page.system-information
-        || page == Page.personalization || page == Page.settings;
+        || page == Page.personalization || page == Page.settings || page == Page.display;
     out property <string> page-title: page == Page.home ? "Home"
         : page == Page.operating-mode ? "Operating Mode"
         : page == Page.gpu-mode ? "GPU Mode"
@@ -331,6 +332,7 @@ export component AppWindow inherits Window {
                         if root.page == Page.home: HomePage { }
                         if root.page == Page.operating-mode: OperatingModePage { }
                         if root.page == Page.battery-care: BatteryCarePage { }
+                        if root.page == Page.display: DisplayPage { }
                         if root.page == Page.keyboard-lighting: KeyboardLightingPage { }
                         if root.page == Page.system-monitor: SystemMonitorPage { }
                         if root.page == Page.personalization: PersonalizationPage { }
