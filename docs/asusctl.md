@@ -165,18 +165,11 @@ sudo make install
 
 #### Ubuntu 24.04 (supported by this fork)
 
-Tested on Ubuntu 24.04 LTS (kernel 6.8, XFCE on X11). The toolchain pinned in
-`rust-toolchain.toml` is installed automatically by [rustup](https://rustup.rs/);
-Ubuntu's `cargo`/`rustc` packages are too old.
-
-```sh
-sudo apt install build-essential cmake pkg-config libclang-dev libudev-dev \
-    libfontconfig1-dev libfreetype-dev libexpat1-dev libxkbcommon-dev \
-    libxkbcommon-x11-dev libwayland-dev libssl-dev libzstd-dev
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-make
-sudo make install
-```
+**Fork:** tested on Ubuntu 24.04 LTS (kernel 6.8, XFCE on X11). The full
+clone, build and install steps are in the
+[README's Install section](../README.md#install). Ubuntu's `cargo`/`rustc`
+packages are too old; rustup installs the toolchain pinned in
+`rust-toolchain.toml`.
 
 `libsdl2-dev` is only needed to build the AniMe Matrix simulator
 (`cargo build -p rog_simulators`), which is not part of `make`.

@@ -6,8 +6,8 @@
 
 This fork is built and tested on Ubuntu 24.04 with the stock 6.8 kernel
 (ASUS TUF Gaming A15 FA506IC, XFCE on X11). Build and install from source as
-described in [asusctl.md](../asusctl.md#ubuntu-2404-supported-by-this-fork),
-then:
+described in the [README](../../README.md#install), which ends with these
+service steps:
 
 ```bash
 sudo systemctl daemon-reload

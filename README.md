@@ -47,21 +47,47 @@ On Ubuntu 24.04 (details and the feature status on kernel 6.8 are in
 [docs/distributions/ubuntu.md](docs/distributions/ubuntu.md)):
 
 ```sh
-sudo apt install build-essential cmake pkg-config libclang-dev libudev-dev \
-    libfontconfig1-dev libfreetype-dev libexpat1-dev libxkbcommon-dev \
-    libxkbcommon-x11-dev libwayland-dev libssl-dev libzstd-dev
+# 1. Build tools and libraries
+sudo apt install git build-essential cmake pkg-config libclang-dev \
+    libudev-dev libfontconfig1-dev libfreetype-dev libexpat1-dev \
+    libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libssl-dev libzstd-dev
+
+# 2. Rust (rustup fetches the toolchain this repo pins)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-make && sudo make install
-sudo systemctl mask power-profiles-daemon   # let asusd own the power profiles
-sudo systemctl enable --now asusd
+. "$HOME/.cargo/env"
+
+# 3. Get the source and build it (asusd, asusctl and System Profiler)
+git clone https://github.com/Ashok-19/system-profiler.git
+cd system-profiler
+make
+
+# 4. Install, then let asusd own the power profiles and start it
+sudo make install
+sudo systemctl daemon-reload
+sudo systemctl mask --now power-profiles-daemon
+sudo systemctl start asusd
 ```
+
+asusd starts by itself on later boots (through its udev rule).
+
+Then open **System Profiler** from the menu, or run `system-profiler`.
+
+To update later, run this from the `system-profiler` folder:
+
+```sh
+git pull
+make
+sudo make install
+sudo systemctl restart asusd
+```
+
+`sudo make uninstall` removes everything again. To try the app without
+installing it, `cargo run --release -p profiler-gui` runs it from the checkout
+(asusd still has to be installed and running).
 
 Optional: install [LACT] (a `.deb` from its releases) and run
 `sudo systemctl enable --now lactd` to tune the integrated Radeon from the GPU
 Mode page. While lactd runs it keeps the NVIDIA GPU awake, which costs battery.
-
-Then open **System Profiler** from the menu, or run `system-profiler`.
-`cargo run --release -p profiler-gui` runs it from a checkout.
 
 ## Built on
 
