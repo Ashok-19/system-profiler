@@ -26,7 +26,7 @@ export component SectionHeader inherits HorizontalLayout {
 
     Text {
         text: root.title;
-        font-size: 15px;
+        font-size: 15px * Theme.text-scale;
         font-weight: 600;
         color: Theme.text-strong;
         vertical-alignment: center;
@@ -35,7 +35,7 @@ export component SectionHeader inherits HorizontalLayout {
 
     if root.hint != "": Text {
         text: root.hint;
-        font-size: 13px;
+        font-size: 13px * Theme.text-scale;
         color: Theme.text-faint;
         vertical-alignment: center;
     }
@@ -83,7 +83,7 @@ export component NavItem inherits Rectangle {
 
         if !root.compact: Text {
             text: root.label;
-            font-size: 15px;
+            font-size: 15px * Theme.text-scale;
             color: root.active ? Theme.text-strong : #e2e2e2;
             vertical-alignment: center;
             overflow: elide;
@@ -99,7 +99,7 @@ export component NavGroup inherits Rectangle {
         x: 20px;
         y: parent.height - self.height - 4px;
         text: root.text;
-        font-size: 13px;
+        font-size: 13px * Theme.text-scale;
         color: Theme.text-faint;
     }
 }
@@ -151,7 +151,7 @@ export component ModeTab inherits Rectangle {
         Text {
             text: root.label;
             horizontal-alignment: center;
-            font-size: 15px;
+            font-size: 15px * Theme.text-scale;
             font-weight: root.selected ? 600 : 400;
             color: !root.enabled ? #5e5e5e : root.selected ? Theme.text-strong : Theme.text-muted;
         }
@@ -174,13 +174,13 @@ export component MetricBar inherits VerticalLayout {
     HorizontalLayout {
         Text {
             text: root.label;
-            font-size: 13px;
+            font-size: 13px * Theme.text-scale;
             color: #e2e2e2;
         }
 
         Text {
             text: root.value;
-            font-size: 13px;
+            font-size: 13px * Theme.text-scale;
             color: Theme.text-strong;
             horizontal-alignment: right;
         }
@@ -206,7 +206,7 @@ export component MetricBar inherits VerticalLayout {
 export component KeyValue inherits HorizontalLayout {
     in property <string> key;
     in property <string> value;
-    in property <length> font-size: 13px;
+    in property <length> font-size: 13px * Theme.text-scale;
     Text {
         text: root.key;
         font-size: root.font-size;
@@ -249,7 +249,7 @@ export component Select inherits Rectangle {
         spacing: 6px;
         label := Text {
             text: root.current-index >= 0 && root.current-index < root.options.length ? root.options[root.current-index] : root.placeholder;
-            font-size: 14px;
+            font-size: 14px * Theme.text-scale;
             color: Theme.text;
             vertical-alignment: center;
             overflow: elide;
@@ -286,7 +286,7 @@ export component Select inherits Rectangle {
                     Text {
                         x: 10px;
                         text: option;
-                        font-size: 14px;
+                        font-size: 14px * Theme.text-scale;
                         color: Theme.text;
                         vertical-alignment: center;
                     }
@@ -304,9 +304,10 @@ export component SettingRow inherits Rectangle {
     in property <string> sub;
     in property <bool> shaded;
     in property <bool> dimmed;
-    min-height: Theme.row-height;
+    // Grow past the row height when the text needs it.
+    min-height: max(Theme.row-height, content.min-height);
     background: root.shaded ? Theme.row : transparent;
-    HorizontalLayout {
+    content := HorizontalLayout {
         padding-left: 18px;
         padding-right: 18px;
         spacing: 18px;
@@ -328,14 +329,14 @@ export component SettingRow inherits Rectangle {
             horizontal-stretch: 1;
             Text {
                 text: root.label;
-                font-size: 15px;
+                font-size: 15px * Theme.text-scale;
                 color: root.dimmed ? Theme.text-dim : Theme.text;
                 wrap: word-wrap;
             }
 
             if root.sub != "": Text {
                 text: root.sub;
-                font-size: 12px;
+                font-size: 12px * Theme.text-scale;
                 color: Theme.text-dim;
                 wrap: word-wrap;
             }
@@ -387,7 +388,7 @@ export component KeyCap inherits Rectangle {
         padding-bottom: 2px;
         Text {
             text: root.text;
-            font-size: 13px;
+            font-size: 13px * Theme.text-scale;
             color: Theme.text-strong;
             horizontal-alignment: center;
             vertical-alignment: center;
@@ -425,7 +426,7 @@ export component Switch inherits Rectangle {
     Text {
         x: root.checked ? 7px : parent.width - self.width - 6px;
         text: root.checked ? "ON" : "OFF";
-        font-size: 11px;
+        font-size: 11px * Theme.text-scale;
         font-weight: 700;
         color: root.checked ? Theme.text : Theme.text-faint;
         vertical-alignment: center;
@@ -472,7 +473,7 @@ export component OutlineButton inherits Rectangle {
         padding-right: 16px;
         Text {
             text: root.text;
-            font-size: 14px;
+            font-size: 14px * Theme.text-scale;
             font-weight: root.primary ? 700 : 400;
             color: root.primary ? #120c02 : (touch.has-hover ? Theme.text-strong : #e6e6e6);
             horizontal-alignment: center;
@@ -531,13 +532,13 @@ export component ChoiceCard inherits Rectangle {
             horizontal-stretch: 1;
             Text {
                 text: root.label;
-                font-size: 16px;
+                font-size: 16px * Theme.text-scale;
                 color: root.enabled ? Theme.text-strong : Theme.text-dim;
             }
 
             Text {
                 text: root.description;
-                font-size: 13px;
+                font-size: 13px * Theme.text-scale;
                 color: #bdbdbd;
                 wrap: word-wrap;
             }
@@ -633,7 +634,7 @@ export component StepSlider inherits HorizontalLayout {
     Text {
         width: 48px;
         text: root.shown + root.unit;
-        font-size: 14px;
+        font-size: 14px * Theme.text-scale;
         color: Theme.text-strong;
         horizontal-alignment: right;
         vertical-alignment: center;
@@ -673,7 +674,7 @@ export component Segmented inherits HorizontalLayout {
 
         Text {
             text: option;
-            font-size: 13px;
+            font-size: 13px * Theme.text-scale;
             color: parent.on ? Theme.text-strong : #cfcfcf;
             horizontal-alignment: center;
             vertical-alignment: center;

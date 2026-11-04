@@ -6,7 +6,7 @@ component InfoRow inherits SettingRow {
     in property <string> value;
     Text {
         text: root.value;
-        font-size: 14px;
+        font-size: 14px * Theme.text-scale;
         color: Theme.text;
         horizontal-alignment: right;
         wrap: word-wrap;

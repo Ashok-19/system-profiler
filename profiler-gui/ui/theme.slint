@@ -1,19 +1,37 @@
-// Design tokens. Every colour in the UI comes from here so the
-// Personalization page can restyle the whole app at runtime.
-
-export global Theme {
-    // Accent (default: TUF amber). `accent-dark` is the low end of gradients.
+// User preferences that shape the look, loaded from and saved to the
+// config file by Rust (`save` after any change).
+export global Prefs {
     in-out property <color> accent: #ffa51a;
-    in-out property <color> accent-dark: #9e6610;
-    // 0..1 strength of glows and highlight gradients.
-    in-out property <float> glow: 0.7;
+    // 0 Graphite, 1 Pure Black, 2 Midnight.
+    in-out property <int> background: 0;
+    // 0..100
+    in-out property <int> glow: 70;
+    in-out property <bool> rounded;
+    in-out property <bool> compact;
+    // Text size in percent: 90, 100, 110.
+    in-out property <int> text-size: 100;
+    in-out property <bool> icons-only-sidebar;
+    in-out property <bool> show-hero: true;
+    in-out property <bool> match-keyboard;
+    callback save();
+    // Restore defaults (Rust sets every property, then saves).
+    callback reset();
+}
 
-    // Surfaces (default: Graphite).
-    in-out property <color> bg: #0c0c0c;
-    in-out property <color> side: #171717;
-    in-out property <color> row: #1a1a1a;
-    in-out property <color> panel: #121212;
-    in-out property <color> hair: #262626;
+// Design tokens. Every colour in the UI comes from here, derived from
+// Prefs, so a preference change restyles the whole app at once.
+export global Theme {
+    out property <color> accent: Prefs.accent;
+    // Low end of accent gradients.
+    out property <color> accent-dark: Prefs.accent.mix(#000000, 0.62);
+    // 0..1 strength of glows and highlight gradients.
+    out property <float> glow: Prefs.glow / 100;
+
+    out property <color> bg: Prefs.background == 1 ? #000000 : Prefs.background == 2 ? #0a0e16 : #0c0c0c;
+    out property <color> side: Prefs.background == 1 ? #0d0d0d : Prefs.background == 2 ? #121826 : #171717;
+    out property <color> row: Prefs.background == 1 ? #141414 : Prefs.background == 2 ? #161d2c : #1a1a1a;
+    out property <color> panel: Prefs.background == 1 ? #0a0a0a : Prefs.background == 2 ? #0f1420 : #121212;
+    out property <color> hair: Prefs.background == 1 ? #1e1e1e : Prefs.background == 2 ? #1f2738 : #262626;
 
     // Fixed neutrals.
     out property <color> line: #4a4a4a;
@@ -28,8 +46,11 @@ export global Theme {
     out property <color> ok: #59d17e;
     out property <color> bad: #ff6b5e;
 
-    in-out property <length> radius: 2px;
-    in-out property <length> row-height: 56px;
+    // Multiplier for every font size (Personalization > Text size).
+    out property <float> text-scale: Prefs.text-size / 100;
+
+    out property <length> radius: Prefs.rounded ? 8px : 2px;
+    out property <length> row-height: Prefs.compact ? 46px : 56px;
 
     out property <string> display-font: "Michroma";
 }

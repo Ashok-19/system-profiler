@@ -1,4 +1,4 @@
-import { Theme } from "../theme.slint";
+import { Theme, Prefs } from "../theme.slint";
 import { Icons, Icon } from "../icons.slint";
 import { Lighting, Effect } from "../state.slint";
 import { SectionHeader, SettingRow, SettingsSection, Switch, Segmented, BracketPanel, StepSlider } from "../widgets/common.slint";
@@ -60,7 +60,7 @@ component EffectTile inherits Rectangle {
 
         Text {
             text: root.label;
-            font-size: 13px;
+            font-size: 13px * Theme.text-scale;
             color: root.selected ? Theme.accent : #d6d6d6;
             horizontal-alignment: center;
             overflow: elide;
@@ -120,7 +120,7 @@ component KeyboardPreview inherits Rectangle {
 }
 
 component Caption inherits Text {
-    font-size: 13px;
+    font-size: 13px * Theme.text-scale;
     color: #bdbdbd;
 }
 
@@ -139,6 +139,9 @@ export component KeyboardLightingPage inherits VerticalLayout {
     }
 
     function pick-effect(mode: int) {
+        if Prefs.match-keyboard {
+            Lighting.colour = Prefs.accent;
+        }
         Lighting.mode = mode;
         Lighting.apply-effect();
         if !root.lit {
@@ -150,11 +153,21 @@ export component KeyboardLightingPage inherits VerticalLayout {
         if level > 0 {
             root.last-brightness = level;
         }
+        // Coming on while following the accent: recolour first.
+        if level > 0 && !root.lit && Prefs.match-keyboard && Lighting.colour != Prefs.accent {
+            Lighting.colour = Prefs.accent;
+            Lighting.apply-effect();
+        }
         Lighting.brightness = level;
         Lighting.set-brightness(level);
     }
 
     function set-colour(c: color) {
+        // An explicit keyboard colour ends "match the accent".
+        if Prefs.match-keyboard {
+            Prefs.match-keyboard = false;
+            Prefs.save();
+        }
         Lighting.colour = c;
         Lighting.apply-effect();
     }
@@ -164,7 +177,7 @@ export component KeyboardLightingPage inherits VerticalLayout {
 
     if !Lighting.available: Text {
         text: "asusd reports no keyboard backlight it can control on this laptop.";
-        font-size: 14px;
+        font-size: 14px * Theme.text-scale;
         color: Theme.text-dim;
     }
 
@@ -213,7 +226,7 @@ export component KeyboardLightingPage inherits VerticalLayout {
             BracketPanel {
                 Text {
                     text: root.effect-name;
-                    font-size: 16px;
+                    font-size: 16px * Theme.text-scale;
                     font-weight: 600;
                     color: Theme.text-strong;
                 }
