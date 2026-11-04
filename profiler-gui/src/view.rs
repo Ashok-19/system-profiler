@@ -4,8 +4,13 @@
 
 use sys_monitor::{ChargeStatus, GpuStats, PowerState, PowerStats, Snapshot};
 
+use crate::history::{self, History, Sample};
+
 /// Fans are drawn against this many RPM until a faster reading is seen.
 const FAN_SCALE_FLOOR_RPM: u32 = 5000;
+/// Package power is charted against this many watts until more is seen.
+const POWER_SCALE_FLOOR_W: f32 = 60.0;
+const CPU_TEMP_RANGE_C: (f32, f32) = (30.0, 100.0);
 const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
 const MIB: f64 = 1024.0 * 1024.0;
 const MISSING: &str = "—";
@@ -38,6 +43,27 @@ pub struct BatteryView {
     pub facts: Vec<FactView>,
 }
 
+/// One System Monitor chart. `line`/`area` are path commands on a
+/// 300 x 100 viewbox.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChartView {
+    pub title: String,
+    pub now: String,
+    pub min: String,
+    pub max: String,
+    pub line: String,
+    pub area: String,
+}
+
+/// One row of the "All Sensors" list.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SensorView {
+    pub name: String,
+    /// Driver or device, e.g. `k10temp`.
+    pub source: String,
+    pub value: String,
+}
+
 /// Everything the monitor thread refreshes each second.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LiveView {
@@ -47,6 +73,9 @@ pub struct LiveView {
     pub battery_percent: i32,
     pub on_ac: bool,
     pub battery: BatteryView,
+    /// CPU temperature, CPU usage, package power, CPU fan.
+    pub charts: Vec<ChartView>,
+    pub sensors: Vec<SensorView>,
 }
 
 fn metric(label: &str, value: String, percent: f32) -> MetricView {
@@ -231,21 +260,134 @@ fn discrete_state(gpus: &[GpuStats]) -> String {
     .to_owned()
 }
 
-/// Builds the live views; remembers scale state between samples.
-#[derive(Debug, Default)]
+/// Package power of an AMD APU: the iGPU's PPT sensor covers the package.
+fn package_power(s: &Snapshot) -> Option<f32> {
+    integrated(&s.gpus)
+        .filter(|g| g.driver.as_deref() == Some("amdgpu"))
+        .and_then(|g| g.power_w)
+}
+
+/// The fan labelled `cpu_fan`, else the first one.
+fn cpu_fan_rpm(s: &Snapshot) -> Option<u32> {
+    s.fans
+        .iter()
+        .find(|f| f.label == "cpu_fan")
+        .or_else(|| s.fans.first())
+        .map(|f| f.rpm)
+}
+
+/// Friendly name for a temperature sensor; `drive` numbers `NVMe` drives.
+fn sensor_name(chip: &str, label: &str, drive: usize) -> String {
+    match (chip, label) {
+        ("k10temp" | "zenpower", l) => format!("CPU ({l})"),
+        ("coretemp", l) => format!("CPU {l}"),
+        ("amdgpu", l) => format!("Radeon ({l})"),
+        ("acpitz", _) => "ACPI thermal zone".to_owned(),
+        ("nvme", "Composite") => format!("Drive {drive}"),
+        ("nvme", l) => format!("Drive {drive} {}", l.to_lowercase()),
+        (c, _) if c.starts_with("mt7") || c.starts_with("iwlwifi") || c.starts_with("ath") => {
+            "Wi-Fi".to_owned()
+        }
+        (_, "temp1") => capitalize(chip),
+        (_, l) => capitalize(l),
+    }
+}
+
+fn sensors(s: &Snapshot) -> Vec<SensorView> {
+    let mut drive = 0;
+    let mut rows: Vec<SensorView> = s
+        .temps
+        .iter()
+        .map(|t| {
+            // Each NVMe drive reports "Composite" first.
+            if t.chip == "nvme" && t.label == "Composite" {
+                drive += 1;
+            }
+            SensorView {
+                name: sensor_name(&t.chip, &t.label, drive),
+                source: t.chip.clone(),
+                value: temp(Some(t.temp_c)),
+            }
+        })
+        .collect();
+    rows.extend(s.fans.iter().map(|f| SensorView {
+        name: fan_label(&f.label),
+        source: f.chip.clone(),
+        value: format!("{} RPM", f.rpm),
+    }));
+    if let Some(w) = package_power(s) {
+        rows.push(SensorView {
+            name: "Package power".to_owned(),
+            source: "amdgpu".to_owned(),
+            value: format!("{w:.1} W"),
+        });
+    }
+    if let Some(b) = &s.power.battery {
+        let volts = b
+            .voltage_v
+            .map_or_else(|| MISSING.to_owned(), |v| format!("{v:.2} V"));
+        let watts = b.power_w.unwrap_or(0.0);
+        rows.push(SensorView {
+            name: "Battery".to_owned(),
+            source: b.name.clone(),
+            value: format!("{volts} · {watts:.1} W"),
+        });
+    }
+    rows
+}
+
+fn chart(
+    title: &str,
+    values: &[f32],
+    window: usize,
+    (lo, hi): (f32, f32),
+    fmt: impl Fn(f32) -> String,
+    now: Option<f32>,
+) -> ChartView {
+    let (line, area) = history::chart_paths(values, window, lo, hi);
+    ChartView {
+        title: title.to_owned(),
+        now: now.map_or_else(|| MISSING.to_owned(), &fmt),
+        min: fmt(lo),
+        max: fmt(hi),
+        line,
+        area,
+    }
+}
+
+/// Builds the live views; remembers scales and history between samples.
+#[derive(Debug)]
 pub struct Formatter {
     fan_max_rpm: u32,
+    power_max_w: f32,
+    history: History,
+    /// Chart window in minutes.
+    pub window_minutes: u32,
+}
+
+impl Default for Formatter {
+    fn default() -> Self {
+        Self {
+            fan_max_rpm: FAN_SCALE_FLOOR_RPM,
+            power_max_w: POWER_SCALE_FLOOR_W,
+            history: History::default(),
+            window_minutes: 1,
+        }
+    }
 }
 
 impl Formatter {
     pub fn live(&mut self, s: &Snapshot) -> LiveView {
+        let panels = vec![
+            Self::cpu(s),
+            Self::gpu(s),
+            self.fans(s),
+            Self::memory(s),
+        ];
         LiveView {
-            panels: vec![
-                Self::cpu(s),
-                Self::gpu(s),
-                self.fans(s),
-                Self::memory(s),
-            ],
+            panels,
+            charts: self.charts(s),
+            sensors: sensors(s),
             battery_percent: s
                 .power
                 .battery
@@ -255,6 +397,61 @@ impl Formatter {
             on_ac: s.power.ac_online.unwrap_or(true),
             battery: battery(&s.power),
         }
+    }
+
+    fn charts(&mut self, s: &Snapshot) -> Vec<ChartView> {
+        let package_w = package_power(s);
+        let fan = cpu_fan_rpm(s);
+        #[allow(clippy::cast_precision_loss)] // RPM values are small
+        let fan_f = fan.map(|r| r as f32);
+        self.history.push(Sample {
+            cpu_temp_c: s.cpu.temp_c.unwrap_or(0.0),
+            cpu_usage: s.cpu.usage_percent.unwrap_or(0.0),
+            package_w: package_w.unwrap_or(0.0),
+            fan_rpm: fan_f.unwrap_or(0.0),
+        });
+        if let Some(w) = package_w {
+            // Grow the scale in steps of 10 W so it does not jitter.
+            self.power_max_w = self.power_max_w.max((w / 10.0).ceil() * 10.0);
+        }
+        let window = usize::try_from(self.window_minutes.max(1) * 60).unwrap_or(60);
+        let h = &self.history;
+        #[allow(clippy::cast_precision_loss)]
+        let fan_max = self.fan_max_rpm as f32;
+        vec![
+            chart(
+                "CPU Temperature",
+                &h.series(window, |x| x.cpu_temp_c),
+                window,
+                CPU_TEMP_RANGE_C,
+                |v| temp(Some(v)),
+                s.cpu.temp_c,
+            ),
+            chart(
+                "CPU Usage",
+                &h.series(window, |x| x.cpu_usage),
+                window,
+                (0.0, 100.0),
+                |v| format!("{v:.0} %"),
+                s.cpu.usage_percent,
+            ),
+            chart(
+                "Package Power",
+                &h.series(window, |x| x.package_w),
+                window,
+                (0.0, self.power_max_w),
+                |v| format!("{v:.0} W"),
+                package_w,
+            ),
+            chart(
+                "CPU Fan",
+                &h.series(window, |x| x.fan_rpm),
+                window,
+                (0.0, fan_max),
+                |v| format!("{v:.0} RPM"),
+                fan_f,
+            ),
+        ]
     }
 
     fn cpu(s: &Snapshot) -> PanelView {
@@ -269,10 +466,7 @@ impl Formatter {
             temp(c.temp_c),
         )];
         // On AMD APUs the iGPU's PPT sensor reports the whole package.
-        if let Some(w) = integrated(&s.gpus)
-            .filter(|g| g.driver.as_deref() == Some("amdgpu"))
-            .and_then(|g| g.power_w)
-        {
+        if let Some(w) = package_power(s) {
             rows.push(fact("Package Power", format!("{w:.0} W")));
         }
         rows.push(fact("Threads", c.cores.len().to_string()));
@@ -330,7 +524,7 @@ impl Formatter {
 
     fn fans(&mut self, s: &Snapshot) -> PanelView {
         let fastest = s.fans.iter().map(|f| f.rpm).max().unwrap_or(0);
-        self.fan_max_rpm = self.fan_max_rpm.max(fastest).max(FAN_SCALE_FLOOR_RPM);
+        self.fan_max_rpm = self.fan_max_rpm.max(fastest);
         let scale = u64::from(self.fan_max_rpm);
         PanelView {
             title: "Fan".to_owned(),
@@ -603,6 +797,51 @@ mod tests {
         assert_eq!(duration(0.75), "45 min");
         assert_eq!(duration(2.0), "2 h");
         assert_eq!(duration(3.0 + 1.0 / 3.0), "3 h 20 min");
+    }
+
+    #[test]
+    fn charts_and_sensors() {
+        let mut f = Formatter::default();
+        f.live(&snapshot());
+        let v = f.live(&snapshot());
+        let titles: Vec<&str> = v.charts.iter().map(|c| c.title.as_str()).collect();
+        assert_eq!(
+            titles,
+            [
+                "CPU Temperature", "CPU Usage", "Package Power", "CPU Fan"
+            ]
+        );
+        assert_eq!(v.charts[0].now, "92 °C");
+        assert_eq!(v.charts[0].min, "30 °C");
+        assert_eq!(v.charts[3].max, "6000 RPM", "scale follows the fastest fan");
+        assert!(v.charts[1].line.starts_with('M'));
+
+        let names: Vec<(&str, &str)> = v
+            .sensors
+            .iter()
+            .map(|s| (s.name.as_str(), s.value.as_str()))
+            .collect();
+        assert_eq!(
+            names,
+            [
+                ("Drive 1", "47 °C"),
+                ("Drive 1 sensor 1", "54 °C"),
+                ("CPU Fan", "2500 RPM"),
+                ("GPU Fan", "6000 RPM"),
+                ("Package power", "54.0 W"),
+                ("Battery", "— · 0.0 W"),
+            ]
+        );
+    }
+
+    #[test]
+    fn sensor_names() {
+        assert_eq!(sensor_name("k10temp", "Tctl", 0), "CPU (Tctl)");
+        assert_eq!(sensor_name("amdgpu", "edge", 0), "Radeon (edge)");
+        assert_eq!(sensor_name("mt7921_phy0", "temp1", 0), "Wi-Fi");
+        assert_eq!(sensor_name("nvme", "Composite", 2), "Drive 2");
+        assert_eq!(sensor_name("acpitz", "temp1", 0), "ACPI thermal zone");
+        assert_eq!(sensor_name("thinkpad", "temp1", 0), "Thinkpad");
     }
 
     #[test]

@@ -1,12 +1,13 @@
 //! System Profiler: an Armoury Crate-style control center for ASUS laptops.
 
 mod daemon;
+mod history;
 mod machine;
 mod monitor;
 mod view;
 
 use env_logger::Env;
-use slint::ComponentHandle;
+use slint::{ComponentHandle, ModelRc, VecModel};
 use sys_monitor::Monitor;
 
 use crate::machine::MachineInfo;
@@ -28,6 +29,7 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     let ui = AppWindow::new()?;
+    ui.set_app_version(env!("CARGO_PKG_VERSION").into());
 
     let mut monitor = Monitor::new();
     let first = monitor.sample();
@@ -39,8 +41,17 @@ fn main() -> Result<(), slint::PlatformError> {
     machine.set_dgpu(info.dgpu.into());
     machine.set_cpu_threads(i32::try_from(info.cpu_threads).unwrap_or(0));
     machine.set_cpufreq_driver(info.cpufreq_driver.into());
+    let details: Vec<Fact> = info
+        .details
+        .into_iter()
+        .map(|(key, value)| Fact {
+            key: key.into(),
+            value: value.into(),
+        })
+        .collect();
+    machine.set_details(ModelRc::new(VecModel::from(details)));
 
-    monitor::spawn(ui.as_weak(), monitor);
+    monitor::spawn(&ui, monitor);
     daemon::spawn(&ui);
 
     ui.run()

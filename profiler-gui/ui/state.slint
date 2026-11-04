@@ -18,6 +18,29 @@ export struct MonitorPanel {
     rows: [Fact],
 }
 
+// One System Monitor chart; `line`/`area` are path commands on a
+// 300 x 100 viewbox.
+export struct Chart {
+    title: string,
+    now: string,
+    min: string,
+    max: string,
+    line: string,
+    area: string,
+}
+
+export struct Sensor {
+    name: string,
+    source: string,
+    value: string,
+}
+
+// Two table cells side by side; `right.name` is empty for a lone cell.
+export struct SensorRow {
+    left: Sensor,
+    right: Sensor,
+}
+
 // Live sensor readings, refreshed by the monitor thread.
 export global Live {
     in property <[MonitorPanel]> panels;
@@ -26,6 +49,11 @@ export global Live {
     // Battery Care: one status line and the details list.
     in property <string> battery-status;
     in property <[Fact]> battery-facts;
+    // System Monitor: CPU temperature, CPU usage, package power, CPU fan.
+    in property <[Chart]> charts;
+    in property <[SensorRow]> sensors;
+    in-out property <int> history-minutes: 1;
+    callback set-history-minutes(int);
 }
 
 // Static facts about this machine.
@@ -36,6 +64,8 @@ export global Machine {
     in property <string> dgpu;
     in property <int> cpu-threads;
     in property <string> cpufreq-driver;
+    // System Information rows.
+    in property <[Fact]> details;
 }
 
 // State owned by asusd. Setters are optimistic; the daemon thread
