@@ -21,7 +21,7 @@ component EppRow inherits SettingRow {
     }
 }
 
-export component OperatingModePage inherits VerticalLayout {
+export component OperatingModePage inherits HorizontalLayout {
     property <[string]> mode-names: ["Silent", "Performance", "Turbo"];
     property <[string]> firmware-names: ["quiet", "balanced", "performance"];
     property <[string]> descriptions: [
@@ -32,181 +32,190 @@ export component OperatingModePage inherits VerticalLayout {
     // Same order as CPUEPP in asusd.
     property <[string]> epp-names: ["Driver default", "Performance", "Balance performance", "Balance power", "Power saving"];
 
-    max-width: 1080px;
-    spacing: 34px;
-    alignment: start;
-
+    // Content stops at 1080 px; the filler takes the rest so the page
+    // never limits the window's width.
     VerticalLayout {
-        spacing: 18px;
-        SectionHeader { title: "Operating Mode"; }
-        HorizontalLayout {
-            padding-left: 20px;
-            OperatingModeTabs { icon-size: 34px; }
-        }
+        max-width: 1080px;
+        horizontal-stretch: 1;
+        spacing: 34px;
+        alignment: start;
 
-        HorizontalLayout {
-            padding-left: 20px;
-            spacing: 40px;
-            Text {
-                min-width: 280px;
-                horizontal-stretch: 1;
-                text: Device.mode >= 0 ? root.descriptions[Device.mode]
-                    : Device.daemon-ok ? "The firmware is in a profile this app does not manage. Pick a mode above."
-                    : "asusd is not running, so the mode cannot be changed.";
-                font-size: 14px;
-                color: #cfcfcf;
-                wrap: word-wrap;
-            }
-
-            VerticalLayout {
-                width: 300px;
-                spacing: 4px;
-                KeyValue {
-                    key: "Firmware profile";
-                    value: Device.mode >= 0 ? root.firmware-names[Device.mode] : "—";
-                }
-
-                KeyValue {
-                    key: "CPU energy preference";
-                    value: Device.cpu-epp != "" ? Device.cpu-epp : "—";
-                }
-
-                KeyValue {
-                    key: "Power source";
-                    value: Live.on-ac ? "AC adapter" : "Battery";
-                }
-            }
-        }
-    }
-
-    SettingsSection {
-        title: "Automatic Switching";
-        hint: "Applied by asusd, even when this app is closed";
-        SettingRow {
-            shaded: true;
-            icon: Icons.plug;
-            label: "Change mode when the power source changes";
-            Switch {
-                label: "Change mode when the power source changes";
-                checked: Device.auto-switch;
-                enabled: Device.daemon-ok;
-                toggled(on) => {
-                    Device.auto-switch = on;
-                    Device.set-auto-switch(on);
-                }
-            }
-        }
-
-        SettingRow {
-            icon: Icons.battery-small;
-            label: "Mode on battery";
-            dimmed: !Device.auto-switch;
-            Select {
-                width: 228px;
-                options: root.mode-names;
-                current-index: Device.mode-on-battery;
-                placeholder: "—";
-                selected(i) => {
-                    Device.mode-on-battery = i;
-                    Device.set-mode-on-battery(i);
-                }
-            }
-        }
-
-        SettingRow {
-            shaded: true;
-            icon: Icons.plug;
-            label: "Mode when plugged in";
-            dimmed: !Device.auto-switch;
-            Select {
-                width: 228px;
-                options: root.mode-names;
-                current-index: Device.mode-on-ac;
-                placeholder: "—";
-                selected(i) => {
-                    Device.mode-on-ac = i;
-                    Device.set-mode-on-ac(i);
-                }
-            }
-        }
-    }
-
-    SettingsSection {
-        title: "Processor";
-        SettingRow {
-            shaded: true;
-            icon: Icons.cpu;
-            label: "Set CPU energy preference with the mode";
-            sub: Machine.cpufreq-driver != ""
-                ? Machine.cpufreq-driver + " on all " + Machine.cpu-threads + " threads"
-                : "";
-            Switch {
-                label: "Set CPU energy preference with the mode";
-                checked: Device.linked-epp;
-                enabled: Device.daemon-ok;
-                toggled(on) => {
-                    Device.linked-epp = on;
-                    Device.set-linked-epp(on);
-                }
-            }
-        }
-
-        EppRow {
-            icon: Icons.silent;
-            label: "Energy preference in Silent";
-            mode: 0;
-            choices: root.epp-names;
-        }
-
-        EppRow {
-            shaded: true;
-            icon: Icons.performance;
-            label: "Energy preference in Performance";
-            mode: 1;
-            choices: root.epp-names;
-        }
-
-        EppRow {
-            icon: Icons.turbo;
-            label: "Energy preference in Turbo";
-            mode: 2;
-            choices: root.epp-names;
-        }
-    }
-
-    SettingsSection {
-        title: "Fan";
-        SettingRow {
-            shaded: true;
-            icon: Icons.fan;
-            label: "Manual fan curves";
-            dimmed: true;
-            Text {
-                text: "Not supported by this model's firmware";
-                font-size: 14px;
-                color: Theme.text-dim;
-            }
-        }
-    }
-
-    SettingsSection {
-        title: "Shortcut";
-        SettingRow {
-            shaded: true;
-            icon: Icons.key;
-            label: "Next operating mode";
-            sub: "Handled by the kernel's asus-nb-wmi driver, so it works without this app";
+        VerticalLayout {
+            spacing: 18px;
+            SectionHeader { title: "Operating Mode"; }
             HorizontalLayout {
-                spacing: 6px;
-                KeyCap { text: "Fn"; }
+                padding-left: 20px;
+                OperatingModeTabs { icon-size: 34px; }
+            }
+
+            HorizontalLayout {
+                padding-left: 20px;
+                spacing: 40px;
                 Text {
-                    text: "+";
-                    color: Theme.text-dim;
-                    vertical-alignment: center;
+                    min-width: 280px;
+                    horizontal-stretch: 1;
+                    text: Device.mode >= 0 ? root.descriptions[Device.mode]
+                        : Device.daemon-ok ? "The firmware is in a profile this app does not manage. Pick a mode above."
+                        : "asusd is not running, so the mode cannot be changed.";
+                    font-size: 14px;
+                    color: #cfcfcf;
+                    wrap: word-wrap;
                 }
 
-                KeyCap { text: "F5"; }
+                VerticalLayout {
+                    width: 300px;
+                    spacing: 4px;
+                    KeyValue {
+                        key: "Firmware profile";
+                        value: Device.mode >= 0 ? root.firmware-names[Device.mode] : "—";
+                    }
+
+                    KeyValue {
+                        key: "CPU energy preference";
+                        value: Device.cpu-epp != "" ? Device.cpu-epp : "—";
+                    }
+
+                    KeyValue {
+                        key: "Power source";
+                        value: Live.on-ac ? "AC adapter" : "Battery";
+                    }
+                }
             }
         }
+
+        SettingsSection {
+            title: "Automatic Switching";
+            hint: "Applied by asusd, even when this app is closed";
+            SettingRow {
+                shaded: true;
+                icon: Icons.plug;
+                label: "Change mode when the power source changes";
+                Switch {
+                    label: "Change mode when the power source changes";
+                    checked: Device.auto-switch;
+                    enabled: Device.daemon-ok;
+                    toggled(on) => {
+                        Device.auto-switch = on;
+                        Device.set-auto-switch(on);
+                    }
+                }
+            }
+
+            SettingRow {
+                icon: Icons.battery-small;
+                label: "Mode on battery";
+                dimmed: !Device.auto-switch;
+                Select {
+                    width: 228px;
+                    options: root.mode-names;
+                    current-index: Device.mode-on-battery;
+                    placeholder: "—";
+                    selected(i) => {
+                        Device.mode-on-battery = i;
+                        Device.set-mode-on-battery(i);
+                    }
+                }
+            }
+
+            SettingRow {
+                shaded: true;
+                icon: Icons.plug;
+                label: "Mode when plugged in";
+                dimmed: !Device.auto-switch;
+                Select {
+                    width: 228px;
+                    options: root.mode-names;
+                    current-index: Device.mode-on-ac;
+                    placeholder: "—";
+                    selected(i) => {
+                        Device.mode-on-ac = i;
+                        Device.set-mode-on-ac(i);
+                    }
+                }
+            }
+        }
+
+        SettingsSection {
+            title: "Processor";
+            SettingRow {
+                shaded: true;
+                icon: Icons.cpu;
+                label: "Set CPU energy preference with the mode";
+                sub: Machine.cpufreq-driver != ""
+                    ? Machine.cpufreq-driver + " on all " + Machine.cpu-threads + " threads"
+                    : "";
+                Switch {
+                    label: "Set CPU energy preference with the mode";
+                    checked: Device.linked-epp;
+                    enabled: Device.daemon-ok;
+                    toggled(on) => {
+                        Device.linked-epp = on;
+                        Device.set-linked-epp(on);
+                    }
+                }
+            }
+
+            EppRow {
+                icon: Icons.silent;
+                label: "Energy preference in Silent";
+                mode: 0;
+                choices: root.epp-names;
+            }
+
+            EppRow {
+                shaded: true;
+                icon: Icons.performance;
+                label: "Energy preference in Performance";
+                mode: 1;
+                choices: root.epp-names;
+            }
+
+            EppRow {
+                icon: Icons.turbo;
+                label: "Energy preference in Turbo";
+                mode: 2;
+                choices: root.epp-names;
+            }
+        }
+
+        SettingsSection {
+            title: "Fan";
+            SettingRow {
+                shaded: true;
+                icon: Icons.fan;
+                label: "Manual fan curves";
+                dimmed: true;
+                Text {
+                    text: "Not supported by this model's firmware";
+                    font-size: 14px;
+                    color: Theme.text-dim;
+                }
+            }
+        }
+
+        SettingsSection {
+            title: "Shortcut";
+            SettingRow {
+                shaded: true;
+                icon: Icons.key;
+                label: "Next operating mode";
+                sub: "Handled by the kernel's asus-nb-wmi driver, so it works without this app";
+                HorizontalLayout {
+                    spacing: 6px;
+                    KeyCap { text: "Fn"; }
+                    Text {
+                        text: "+";
+                        color: Theme.text-dim;
+                        vertical-alignment: center;
+                    }
+
+                    KeyCap { text: "F5"; }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        horizontal-stretch: 0.001;
     }
 }
