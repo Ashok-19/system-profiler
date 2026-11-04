@@ -1,3 +1,9 @@
+> [!NOTE]
+> This is upstream asusctl's contribution guide. It applies to changes meant
+> for [asusctl](https://github.com/OpenGamingCollective/asusctl); the git hooks
+> it describes run in this repository too. System Profiler changes live in
+> `profiler-gui/` and `sys-monitor/`.
+
 # Contributing to asusctl
 
 Thank you for contributing to asusctl. This guide outlines project bounds, issue reporting rules, and the pull request workflow.

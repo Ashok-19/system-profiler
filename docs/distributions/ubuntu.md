@@ -6,7 +6,7 @@
 
 This fork is built and tested on Ubuntu 24.04 with the stock 6.8 kernel
 (ASUS TUF Gaming A15 FA506IC, XFCE on X11). Build and install from source as
-described in the [README](https://github.com/Ashok-19/system-profiler#ubuntu-2404-supported-by-this-fork),
+described in [asusctl.md](../asusctl.md#ubuntu-2404-supported-by-this-fork),
 then:
 
 ```bash
