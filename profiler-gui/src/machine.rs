@@ -20,6 +20,8 @@ pub struct MachineInfo {
     pub cpu: String,
     /// Marketing name of the discrete GPU, if any.
     pub dgpu: String,
+    /// Marketing name of the GPU driving the built-in screen.
+    pub igpu: String,
     /// Logical CPUs (hardware threads).
     pub cpu_threads: usize,
     /// cpufreq scaling driver, e.g. "amd-pstate-epp".
@@ -261,6 +263,13 @@ impl MachineInfo {
                 .gpus
                 .iter()
                 .find(|g| !g.boot_vga)
+                .zip(ids.as_deref())
+                .and_then(|(g, ids)| gpu_name(g, ids))
+                .unwrap_or_default(),
+            igpu: snapshot
+                .gpus
+                .iter()
+                .find(|g| g.boot_vga)
                 .zip(ids.as_deref())
                 .and_then(|(g, ids)| gpu_name(g, ids))
                 .unwrap_or_default(),

@@ -1,0 +1,184 @@
+import { Theme } from "../theme.slint";
+import { Icons } from "../icons.slint";
+import { Graphics, Live, Machine } from "../state.slint";
+import { SectionHeader, SettingRow, SettingsSection, KeyValue, ModeTab, OutlineButton } from "../widgets/common.slint";
+
+component StatusText inherits Text {
+    font-size: 14px * Theme.text-scale;
+    horizontal-alignment: right;
+}
+
+export component GpuModePage inherits HorizontalLayout {
+    property <string> dgpu: Machine.dgpu != "" ? Machine.dgpu : "Discrete GPU";
+    property <string> dgpu-state: Graphics.eco ? "Powered off" : Live.dgpu-state;
+
+    // Facts are read when the page opens; nothing here wakes the dGPU.
+    init => {
+        Graphics.refresh();
+    }
+
+    // Content stops at 1080 px; the filler takes the rest so the page
+    // never limits the window's width.
+    VerticalLayout {
+        max-width: 1080px;
+        horizontal-stretch: 1;
+        spacing: 34px;
+        alignment: start;
+
+        VerticalLayout {
+            spacing: 18px;
+            SectionHeader { title: "GPU Mode"; }
+            HorizontalLayout {
+                padding-left: 20px;
+                Rectangle {
+                    Rectangle {
+                        y: parent.height - 1px;
+                        height: 1px;
+                        background: Theme.line;
+                    }
+
+                    HorizontalLayout {
+                        ModeTab {
+                            label: "Eco";
+                            icon: Icons.eco;
+                            icon-size: 34px;
+                            selected: Graphics.eco;
+                            enabled: false;
+                        }
+
+                        ModeTab {
+                            label: "Standard";
+                            icon: Icons.gpu;
+                            icon-size: 34px;
+                            selected: !Graphics.eco;
+                            enabled: !Graphics.eco;
+                        }
+
+                        ModeTab {
+                            label: "Optimized";
+                            icon: Icons.optimized;
+                            icon-size: 34px;
+                            enabled: false;
+                        }
+
+                        ModeTab {
+                            label: "Ultimate";
+                            icon: Icons.bolt;
+                            icon-size: 34px;
+                            enabled: false;
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                padding-left: 20px;
+                spacing: 40px;
+                Text {
+                    min-width: 280px;
+                    horizontal-stretch: 1;
+                    text: Graphics.eco
+                        ? "The " + root.dgpu + " is switched off in firmware. Everything runs on the integrated GPU."
+                        : "Hybrid graphics. The " + root.dgpu + " wakes for apps that ask for it and sleeps the rest of the time.";
+                    font-size: 14px * Theme.text-scale;
+                    color: #cfcfcf;
+                    wrap: word-wrap;
+                }
+
+                VerticalLayout {
+                    width: 300px;
+                    spacing: 4px;
+                    KeyValue {
+                        key: "Discrete GPU";
+                        value: root.dgpu-state;
+                    }
+
+                    KeyValue {
+                        key: "Built-in screen";
+                        value: "Integrated GPU";
+                    }
+
+                    KeyValue {
+                        key: "MUX switch";
+                        value: Graphics.has-mux ? "Present" : "Not present";
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                padding-left: 20px;
+                Text {
+                    text: "Eco and Optimized are not available yet: during a session Xorg keeps the NVIDIA driver loaded (PRIME on-demand), so turning the GPU off safely needs a switch at boot. Ultimate needs a MUX switch, which this laptop does not have.";
+                    font-size: 13px * Theme.text-scale;
+                    color: Theme.text-faint;
+                    wrap: word-wrap;
+                }
+            }
+        }
+
+        SettingsSection {
+            title: "Power Saving";
+            SettingRow {
+                shaded: true;
+                icon: Icons.sleep;
+                label: "Let the " + root.dgpu + " sleep when idle";
+                sub: "Runtime power management; it wakes in milliseconds when an app needs it";
+                StatusText {
+                    text: Graphics.can-sleep == 1 ? "On" : Graphics.can-sleep == 0 ? "Off" : "—";
+                    color: Graphics.can-sleep == 1 ? Theme.ok : Graphics.can-sleep == 0 ? Theme.bad : Theme.text-dim;
+                }
+            }
+        }
+
+        SettingsSection {
+            title: "Graphics Adapters";
+            SettingRow {
+                shaded: true;
+                icon: Icons.gpu;
+                label: Machine.igpu != "" ? Machine.igpu : "Integrated GPU";
+                sub: Graphics.igpu-detail;
+                StatusText {
+                    text: "Active";
+                    color: Theme.ok;
+                }
+            }
+
+            SettingRow {
+                icon: Icons.gpu;
+                label: root.dgpu;
+                sub: Graphics.dgpu-detail;
+                StatusText {
+                    text: root.dgpu-state;
+                    color: root.dgpu-state == "Active" ? Theme.accent : Theme.text-dim;
+                }
+            }
+        }
+
+        SettingsSection {
+            title: "Apps Using the " + root.dgpu;
+            hint: "Your apps only; system services such as Xorg are not listed";
+            for user[i] in Graphics.users: SettingRow {
+                shaded: Math.mod(i, 2) == 0;
+                label: user;
+            }
+
+            if Graphics.users.length == 0: SettingRow {
+                shaded: true;
+                label: "None";
+                dimmed: true;
+            }
+
+            SettingRow {
+                label: "Check again";
+                OutlineButton {
+                    text: "Refresh";
+                    clicked => { Graphics.refresh(); }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        horizontal-stretch: 0.001;
+    }
+}

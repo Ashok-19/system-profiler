@@ -46,6 +46,8 @@ export global Live {
     in property <[MonitorPanel]> panels;
     in property <int> battery-percent: -1;
     in property <bool> on-ac: true;
+    // Discrete GPU: Active / Sleeping / Waking / Not present.
+    in property <string> dgpu-state;
     // Battery Care: one status line and the details list.
     in property <string> battery-status;
     in property <[Fact]> battery-facts;
@@ -62,6 +64,7 @@ export global Machine {
     in property <string> board;
     in property <string> cpu;
     in property <string> dgpu;
+    in property <string> igpu;
     in property <int> cpu-threads;
     in property <string> cpufreq-driver;
     // System Information rows.
@@ -156,4 +159,23 @@ export global Screen {
     in property <string> touchpad-name;
     in-out property <bool> touchpad-on;
     callback set-touchpad(bool);
+}
+
+// GPU Mode page. `refresh` reads the facts when the page opens; the
+// dGPU's live state comes from the monitor thread.
+export global Graphics {
+    // e.g. "amdgpu · 0000:06:00.0".
+    in property <string> igpu-detail;
+    in property <string> dgpu-detail;
+    // Active / Sleeping / Off / Not present.
+    in property <string> dgpu-state;
+    // This user's processes with the NVIDIA device open.
+    in property <[string]> users;
+    // -1 unknown, 0 kept awake, 1 may sleep when idle.
+    in property <int> can-sleep: -1;
+    // Firmware dgpu_disable is set (Eco).
+    in property <bool> eco;
+    in property <bool> has-mux;
+    in property <bool> has-powerd;
+    callback refresh();
 }
