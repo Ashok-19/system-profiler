@@ -1,7 +1,7 @@
 import { Theme } from "../theme.slint";
 import { Icons } from "../icons.slint";
 import { Graphics, Live, Machine } from "../state.slint";
-import { SectionHeader, SettingRow, SettingsSection, KeyValue, ModeTab, OutlineButton } from "../widgets/common.slint";
+import { SectionHeader, SettingRow, SettingsSection, KeyValue, ModeTab, OutlineButton, Segmented, Select } from "../widgets/common.slint";
 
 component StatusText inherits Text {
     font-size: 14px * Theme.text-scale;
@@ -126,6 +126,72 @@ export component GpuModePage inherits HorizontalLayout {
                 StatusText {
                     text: Graphics.can-sleep == 1 ? "On" : Graphics.can-sleep == 0 ? "Off" : "—";
                     color: Graphics.can-sleep == 1 ? Theme.ok : Graphics.can-sleep == 0 ? Theme.bad : Theme.text-dim;
+                }
+            }
+        }
+
+        SettingsSection {
+            title: "Integrated GPU Tuning";
+            hint: "Through LACT";
+            if Graphics.lact-state == 0: SettingRow {
+                shaded: true;
+                icon: Icons.gpu;
+                label: "LACT is not running";
+                sub: "Install LACT (github.com/ilya-zlobintsev/LACT) and start its daemon with sudo systemctl enable --now lactd to tune the " + (Machine.igpu != "" ? Machine.igpu : "integrated GPU") + " here. lactd keeps the " + root.dgpu + " awake while it runs.";
+                dimmed: true;
+            }
+
+            if Graphics.lact-state == 2: SettingRow {
+                shaded: true;
+                icon: Icons.gpu;
+                label: "LACT cannot reach the integrated GPU";
+                sub: Graphics.lact-error;
+                dimmed: true;
+            }
+
+            if Graphics.lact-state == 1: SettingRow {
+                shaded: true;
+                icon: Icons.performance;
+                label: "Performance level";
+                sub: "Low saves power; High holds clocks up for steadier frame times";
+                Segmented {
+                    width: 280px;
+                    options: ["Auto", "Low", "High"];
+                    current: Graphics.lact-level;
+                    enabled: !Graphics.lact-busy;
+                    selected(i) => {
+                        Graphics.lact-level = i;
+                        Graphics.lact-busy = true;
+                        Graphics.set-lact-level(i);
+                    }
+                }
+            }
+
+            if Graphics.lact-state == 1 && Graphics.lact-modes.length > 0: SettingRow {
+                icon: Icons.profiles;
+                label: "Power profile";
+                sub: "The driver's workload hint for the integrated GPU";
+                Select {
+                    width: 228px;
+                    options: Graphics.lact-modes;
+                    current-index: Graphics.lact-mode;
+                    placeholder: "—";
+                    selected(i) => {
+                        Graphics.lact-mode = i;
+                        Graphics.lact-busy = true;
+                        Graphics.set-lact-mode(i);
+                    }
+                }
+            }
+
+            if Graphics.lact-state == 1 && Machine.dgpu != "": SettingRow {
+                shaded: Graphics.lact-modes.length > 0;
+                icon: Icons.sleep;
+                label: "lactd keeps the " + root.dgpu + " awake";
+                sub: "NVIDIA's management library holds it on while lactd runs. On battery, sudo systemctl stop lactd lets it sleep again.";
+                StatusText {
+                    text: root.dgpu-state;
+                    color: root.dgpu-state == "Active" ? Theme.accent : Theme.text-dim;
                 }
             }
         }

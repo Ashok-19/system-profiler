@@ -22,7 +22,7 @@ about what the hardware cannot do. Also, because why not.
 |---|---|
 | Home | Live CPU, GPU, fan and memory readings; mode and charge limit at a glance |
 | Operating Mode | Silent / Performance / Turbo, switching on AC or battery, CPU energy preference per mode |
-| GPU Mode | Discrete GPU state, apps using it, runtime power management |
+| GPU Mode | Discrete GPU state, apps using it, runtime power management; Radeon performance level and power profile through [LACT], if installed |
 | Battery Care | Health, 100/80/60% presets, a custom limit, one-time full charge |
 | Display | Refresh rate, slowest rate on battery, touchpad on/off |
 | Keyboard Lighting | Effects, colour, speed, brightness, when the backlight is lit |
@@ -56,6 +56,10 @@ sudo systemctl mask power-profiles-daemon   # let asusd own the power profiles
 sudo systemctl enable --now asusd
 ```
 
+Optional: install [LACT] (a `.deb` from its releases) and run
+`sudo systemctl enable --now lactd` to tune the integrated Radeon from the GPU
+Mode page. While lactd runs it keeps the NVIDIA GPU awake, which costs battery.
+
 Then open **System Profiler** from the menu, or run `system-profiler`.
 `cargo run --release -p profiler-gui` runs it from a checkout.
 
@@ -66,6 +70,8 @@ Then open **System Profiler** from the menu, or run `system-profiler`.
   profiles, charge limit, CPU energy preference and keyboard lighting. This
   repository is a fork; upstream is tracked as the `upstream` remote, and
   `asusctl` and `rog-control-center` still build and install alongside.
+- **[LACT]** by Ilya Zlobintsev (MIT), optionally: System Profiler talks to its
+  daemon to tune the integrated GPU.
 - **Linux kernel drivers**, read through sysfs, hwmon and procfs:
   `asus-nb-wmi`/`asus-wmi`, `amd-pstate-epp`, `k10temp`, `amdgpu`, `nvme`,
   and the NVIDIA driver's runtime power management.
@@ -88,6 +94,7 @@ this project is not affiliated with ASUS.
   distributions and service management, is in [docs/asusctl.md](docs/asusctl.md).
 
 [asusctl]: https://github.com/OpenGamingCollective/asusctl
+[LACT]: https://github.com/ilya-zlobintsev/LACT
 [Slint]: https://slint.dev
 [zbus]: https://github.com/dbus2/zbus
 [ksni]: https://github.com/iovxw/ksni

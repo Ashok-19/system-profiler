@@ -26,6 +26,7 @@ ksni = { workspace = true, features = ["blocking"] }
 log.workspace = true
 ron.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 slint = { workspace = true, features = ["backend-winit-x11", "renderer-software"] }
 zbus.workspace = true
 

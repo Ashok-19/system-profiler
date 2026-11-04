@@ -180,6 +180,19 @@ export global Graphics {
     in property <bool> has-mux;
     in property <bool> has-powerd;
     callback refresh();
+
+    // Optional LACT daemon for tuning the integrated GPU.
+    // 0 not running, 1 ready, 2 running but the iGPU is unavailable.
+    in property <int> lact-state;
+    in property <string> lact-error;
+    // Index into auto / low / high; -1 for other levels (e.g. manual).
+    in-out property <int> lact-level: -1;
+    in property <[string]> lact-modes;
+    // Index into lact-modes.
+    in-out property <int> lact-mode: -1;
+    in-out property <bool> lact-busy;
+    callback set-lact-level(int);
+    callback set-lact-mode(int);
 }
 
 // Scenario profile as the UI edits it. Values match config::Profile:

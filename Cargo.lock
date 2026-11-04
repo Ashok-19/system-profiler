@@ -4331,6 +4331,7 @@ dependencies = [
  "rog_platform",
  "ron",
  "serde",
+ "serde_json",
  "slint",
  "slint-build",
  "sys_monitor",

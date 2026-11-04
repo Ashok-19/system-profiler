@@ -9,6 +9,7 @@ mod gpu_mode;
 mod graphics;
 mod history;
 mod instance;
+mod lact;
 mod machine;
 mod monitor;
 mod notify;
