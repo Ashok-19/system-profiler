@@ -140,7 +140,7 @@ or
 Bus 003 Device 002: ID 0b05:19b6 ASUSTek Computer, Inc. [unknown]
 ```
 
-Devices displaying these hardware IDs typically function without extra configuration. Features such as AniMe Matrix, LED controls, and Slash displays work regardless of your laptop make. However, if you are using a newer laptop model, adding explicit hardware support may be required. See [Laptop support requests](#laptop-support-requests) for details.
+Devices displaying these hardware IDs typically function without extra configuration. Features such as AniMe Matrix, LED controls, and Slash displays work regardless of your laptop make. However, if you are using a newer laptop model, adding explicit hardware support may be required. Support for new models is added upstream; see the [asusctl issue tracker](https://github.com/OpenGamingCollective/asusctl/issues).
 
 Features such as battery charge thresholds use generic kernel interfaces and work on non-ASUS hardware, but platform and fan controls require ASUS-specific `asus-nb-wmi` or `asus-armoury` drivers.
 
@@ -320,27 +320,12 @@ cargo build --package rog_simulators
 
 Restart `asusd` after starting the simulator to attach the service to the simulated display interface. Running the simulator on a laptop with a physical display redirects display output to the simulator window.
 
-### Laptop support requests
+## License and trademarks
 
-To request support for unlisted hardware models, open an issue on the [project issue tracker](https://github.com/OpenGamingCollective/asusctl/issues).
+System Profiler is a fork of asusctl and keeps its licence, the
+[Mozilla Public License 2.0](LICENSE). The bundled Open Sans and Michroma
+fonts are under the SIL Open Font License 1.1 (see `profiler-gui/fonts/`).
 
-- **PPT Sliders:** For specific issues regarding PPT sliders, refer to [Issue #124](https://github.com/OpenGamingCollective/asusctl/issues/124).
-- **Keyboard Backlight Support:** The procedure involves testing layout changes locally in `/usr/share/asusd/aura_support.ron` (or `./rog-aura/data/aura_support.ron`). Once you verify that your changes work for your laptop model, create a pull request with the updated mapping.
-
-## Legal and governance
-
-### License and trademarks
-
-This project is licensed under the [Mozilla Public License 2.0 (MPL-2.0)](LICENSE).
-
----
-
-ASUS and ROG are registered trademarks of ASUSTeK Computer Inc. in the United States and other jurisdictions.
-
-References to ASUS products, services, or trademarks within this repository do not constitute or imply endorsement, sponsorship, or recommendation by ASUSTeK Computer Inc. Trademarks are used solely for hardware identification purposes.
-
----
-
-## AI Disclaimer
-
-We do not accept code blindly written with just AI or "vibecoding". We encourage use of AI for finding bugs and as a tool used to assist development, but all of these must be verified by a human as AI makes mistakes and gives false bug reports as well. For further details, refer to [our contribution policy](./CONTRIBUTING.md)
+ASUS, ROG, TUF and Armoury Crate are trademarks of ASUSTeK Computer Inc. This
+project is not affiliated with or endorsed by ASUS; product names are used only
+to identify hardware.
