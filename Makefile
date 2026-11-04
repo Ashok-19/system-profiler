@@ -214,6 +214,9 @@ ifeq ($(VENDORED),1)
 	tar pxf vendor_asusctl_$(VERSION).tar.xz
 endif
 	cargo build $(ARGS)
+	@# cargo leaves unchanged binaries alone; mark them current so a later
+	@# 'sudo make install' does not try to rebuild them as root.
+	touch -c $(addprefix ./target/$(TARGET)/,$(BIN_C) $(BIN_D) $(BIN_S) $(BIN_U) $(BIN_ROG) $(BIN_SP))
 ifeq ($(STRIP_BINARIES),1)
 	strip -s ./target/$(TARGET)/$(BIN_C)
 	strip -s ./target/$(TARGET)/$(BIN_D)
