@@ -138,6 +138,7 @@ fn apply(ui: &AppWindow, view: &LiveView) {
     live.set_battery_percent(view.battery_percent);
     live.set_on_ac(view.on_ac);
     live.set_battery_status(view.battery.status.as_str().into());
+    live.set_dgpu_state(view.dgpu_state.as_str().into());
     sync_or_set(&live.get_battery_facts(), facts(&view.battery.facts), |m| {
         live.set_battery_facts(m);
     });

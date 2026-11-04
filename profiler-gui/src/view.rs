@@ -76,6 +76,8 @@ pub struct LiveView {
     /// CPU temperature, CPU usage, package power, CPU fan.
     pub charts: Vec<ChartView>,
     pub sensors: Vec<SensorView>,
+    /// Active / Sleeping / Waking / Not present.
+    pub dgpu_state: String,
 }
 
 fn metric(label: &str, value: String, percent: f32) -> MetricView {
@@ -399,6 +401,7 @@ impl Formatter {
             panels,
             charts: self.charts(s),
             sensors: sensors(s, f),
+            dgpu_state: discrete_state(&s.gpus),
             battery_percent: s
                 .power
                 .battery

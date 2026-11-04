@@ -5,6 +5,8 @@ mod autostart;
 mod config;
 mod daemon;
 mod display;
+mod gpu_mode;
+mod graphics;
 mod history;
 mod machine;
 mod monitor;
@@ -52,6 +54,7 @@ fn main() -> Result<(), slint::PlatformError> {
     machine.set_board(info.board.into());
     machine.set_cpu(info.cpu.into());
     machine.set_dgpu(info.dgpu.into());
+    machine.set_igpu(info.igpu.into());
     machine.set_cpu_threads(i32::try_from(info.cpu_threads).unwrap_or(0));
     machine.set_cpufreq_driver(info.cpufreq_driver.into());
     let details: Vec<Fact> = info
@@ -67,6 +70,7 @@ fn main() -> Result<(), slint::PlatformError> {
     monitor::spawn(&ui, monitor, &shared);
     daemon::spawn(&ui, &shared);
     screen::wire(&ui);
+    gpu_mode::wire(&ui);
 
     ui.run()
 }
