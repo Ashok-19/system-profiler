@@ -37,6 +37,8 @@ fn main() -> Result<(), slint::PlatformError> {
     machine.set_board(info.board.into());
     machine.set_cpu(info.cpu.into());
     machine.set_dgpu(info.dgpu.into());
+    machine.set_cpu_threads(i32::try_from(info.cpu_threads).unwrap_or(0));
+    machine.set_cpufreq_driver(info.cpufreq_driver.into());
 
     monitor::spawn(ui.as_weak(), monitor);
     daemon::spawn(&ui);

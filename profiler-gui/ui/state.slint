@@ -31,6 +31,8 @@ export global Machine {
     in property <string> board;
     in property <string> cpu;
     in property <string> dgpu;
+    in property <int> cpu-threads;
+    in property <string> cpufreq-driver;
 }
 
 // State owned by asusd. Setters are optimistic; the daemon thread
@@ -44,4 +46,23 @@ export global Device {
     // Battery charge limit in percent, -1 if unsupported.
     in-out property <int> charge-limit: -1;
     callback set-charge-limit(int);
+
+    // Automatic switching when the power source changes (asusd applies it,
+    // even while this app is closed). Modes use the same indices as `mode`.
+    in-out property <bool> auto-switch;
+    callback set-auto-switch(bool);
+    in-out property <int> mode-on-ac: -1;
+    callback set-mode-on-ac(int);
+    in-out property <int> mode-on-battery: -1;
+    callback set-mode-on-battery(int);
+
+    // CPU energy-performance preference that asusd applies with each mode.
+    // EPP indices: 0 Default, 1 Performance, 2 Balance performance,
+    // 3 Balance power, 4 Power.
+    in-out property <bool> linked-epp;
+    callback set-linked-epp(bool);
+    in-out property <[int]> mode-epp: [-1, -1, -1];
+    callback set-mode-epp(int /* mode */, int /* epp */);
+    // Live EPP of cpu0 as the kernel reports it, e.g. "balance_power".
+    in property <string> cpu-epp;
 }
