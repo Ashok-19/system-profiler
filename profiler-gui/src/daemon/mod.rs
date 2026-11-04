@@ -7,6 +7,7 @@
 mod lighting;
 mod platform;
 
+use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::Duration;
@@ -18,7 +19,8 @@ use zbus::blocking::Connection;
 use zbus::blocking::fdo::ObjectManagerProxy;
 use zbus::proxy::CacheProperties;
 
-use crate::AppWindow;
+use crate::shared::Shared;
+use crate::{AppWindow, notify};
 
 /// How often the volatile state (mode, charge limit, brightness) is read.
 const REFRESH: Duration = Duration::from_secs(2);
@@ -134,7 +136,34 @@ fn disconnected() -> State {
     )
 }
 
-fn run(ui: &Weak<AppWindow>, commands: &Receiver<Command>) {
+/// Tells the user about mode changes made outside the app (Fn+F5,
+/// asusctl, AC/battery switching).
+#[derive(Debug, Default)]
+struct ModeWatch {
+    last: Option<i32>,
+    /// Mode the app itself just asked for; not worth a notification.
+    requested: Option<i32>,
+}
+
+impl ModeWatch {
+    fn observe(&mut self, mode: i32, shared: &Shared) {
+        let requested = self.requested.take();
+        let changed = self.last.is_some_and(|last| last != mode);
+        if changed
+            && requested != Some(mode)
+            && shared.notify_mode()
+            && let Some((name, summary)) = platform::describe_mode(mode)
+        {
+            notify::show("mode", &format!("{name} mode"), summary);
+        }
+        if mode >= 0 {
+            self.last = Some(mode);
+        }
+    }
+}
+
+fn run(ui: &Weak<AppWindow>, commands: &Receiver<Command>, shared: &Shared) {
+    let mut modes = ModeWatch::default();
     loop {
         let asusd = match Asusd::connect() {
             Ok(asusd) => asusd,
@@ -153,6 +182,7 @@ fn run(ui: &Weak<AppWindow>, commands: &Receiver<Command>) {
         let mut ticks = 0_u32;
         loop {
             let connected = state.0.is_connected();
+            modes.observe(state.0.mode(), shared);
             // Only wake the UI thread when something changed.
             if published.as_ref() != Some(&state) {
                 if !publish(ui, state.clone()) {
@@ -166,6 +196,9 @@ fn run(ui: &Weak<AppWindow>, commands: &Receiver<Command>) {
             }
             let full = match commands.recv_timeout(REFRESH) {
                 Ok(command) => {
+                    if let Command::Platform(platform::Command::Mode(mode)) = command {
+                        modes.requested = Some(mode);
+                    }
                     asusd.execute(command);
                     // The UI updated optimistically; always send the real
                     // state back, even if it is unchanged (a rejection).
@@ -188,16 +221,17 @@ fn run(ui: &Weak<AppWindow>, commands: &Receiver<Command>) {
 }
 
 /// Wire the UI callbacks and start the worker.
-pub fn spawn(ui: &AppWindow) {
+pub fn spawn(ui: &AppWindow, shared: &Arc<Shared>) {
     let (tx, rx) = mpsc::channel();
     platform::wire(ui, &tx);
     lighting::wire(ui, &tx);
     drop(tx);
 
     let weak = ui.as_weak();
+    let shared = Arc::clone(shared);
     let spawned = thread::Builder::new()
         .name("asusd".to_owned())
-        .spawn(move || run(&weak, &rx));
+        .spawn(move || run(&weak, &rx, &shared));
     if let Err(e) = spawned {
         log::error!("Could not start the asusd thread: {e}");
     }

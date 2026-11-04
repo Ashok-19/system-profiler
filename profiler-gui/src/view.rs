@@ -93,8 +93,13 @@ fn fact(key: &str, value: String) -> FactView {
     }
 }
 
-fn temp(c: Option<f32>) -> String {
-    c.map_or_else(|| MISSING.to_owned(), |v| format!("{v:.0} °C"))
+/// `c` in °C, shown in °F when `fahrenheit`.
+fn temp(c: Option<f32>, fahrenheit: bool) -> String {
+    match c {
+        None => MISSING.to_owned(),
+        Some(v) if fahrenheit => format!("{:.0} °F", v * 9.0 / 5.0 + 32.0),
+        Some(v) => format!("{v:.0} °C"),
+    }
 }
 
 #[allow(clippy::cast_precision_loss)] // display only
@@ -293,7 +298,7 @@ fn sensor_name(chip: &str, label: &str, drive: usize) -> String {
     }
 }
 
-fn sensors(s: &Snapshot) -> Vec<SensorView> {
+fn sensors(s: &Snapshot, fahrenheit: bool) -> Vec<SensorView> {
     let mut drive = 0;
     let mut rows: Vec<SensorView> = s
         .temps
@@ -306,7 +311,7 @@ fn sensors(s: &Snapshot) -> Vec<SensorView> {
             SensorView {
                 name: sensor_name(&t.chip, &t.label, drive),
                 source: t.chip.clone(),
-                value: temp(Some(t.temp_c)),
+                value: temp(Some(t.temp_c), fahrenheit),
             }
         })
         .collect();
@@ -363,6 +368,9 @@ pub struct Formatter {
     history: History,
     /// Chart window in minutes.
     pub window_minutes: u32,
+    /// Seconds between samples, to size the chart window.
+    pub interval_s: u32,
+    pub fahrenheit: bool,
 }
 
 impl Default for Formatter {
@@ -372,22 +380,25 @@ impl Default for Formatter {
             power_max_w: POWER_SCALE_FLOOR_W,
             history: History::default(),
             window_minutes: 1,
+            interval_s: 1,
+            fahrenheit: false,
         }
     }
 }
 
 impl Formatter {
     pub fn live(&mut self, s: &Snapshot) -> LiveView {
+        let f = self.fahrenheit;
         let panels = vec![
-            Self::cpu(s),
-            Self::gpu(s),
+            Self::cpu(s, f),
+            Self::gpu(s, f),
             self.fans(s),
-            Self::memory(s),
+            Self::memory(s, f),
         ];
         LiveView {
             panels,
             charts: self.charts(s),
-            sensors: sensors(s),
+            sensors: sensors(s, f),
             battery_percent: s
                 .power
                 .battery
@@ -414,8 +425,9 @@ impl Formatter {
             // Grow the scale in steps of 10 W so it does not jitter.
             self.power_max_w = self.power_max_w.max((w / 10.0).ceil() * 10.0);
         }
-        let window = usize::try_from(self.window_minutes.max(1) * 60).unwrap_or(60);
-        let h = &self.history;
+        let samples = self.window_minutes.max(1) * 60 / self.interval_s.max(1);
+        let window = usize::try_from(samples).unwrap_or(60);
+        let (h, f) = (&self.history, self.fahrenheit);
         #[allow(clippy::cast_precision_loss)]
         let fan_max = self.fan_max_rpm as f32;
         vec![
@@ -424,7 +436,7 @@ impl Formatter {
                 &h.series(window, |x| x.cpu_temp_c),
                 window,
                 CPU_TEMP_RANGE_C,
-                |v| temp(Some(v)),
+                |v| temp(Some(v), f),
                 s.cpu.temp_c,
             ),
             chart(
@@ -454,7 +466,7 @@ impl Formatter {
         ]
     }
 
-    fn cpu(s: &Snapshot) -> PanelView {
+    fn cpu(s: &Snapshot, f: bool) -> PanelView {
         let c = &s.cpu;
         let freq = c.avg_freq_mhz();
         let freq_pct = match (freq, c.rated_max_mhz) {
@@ -463,7 +475,7 @@ impl Formatter {
         };
         let mut rows = vec![fact(
             "Temperature",
-            temp(c.temp_c),
+            temp(c.temp_c, f),
         )];
         // On AMD APUs the iGPU's PPT sensor reports the whole package.
         if let Some(w) = package_power(s) {
@@ -489,7 +501,7 @@ impl Formatter {
         }
     }
 
-    fn gpu(s: &Snapshot) -> PanelView {
+    fn gpu(s: &Snapshot, f: bool) -> PanelView {
         let igpu = integrated(&s.gpus);
         let usage = igpu.and_then(|g| g.usage_percent);
         let vram = igpu.and_then(|g| Some((g.vram_used_bytes?, g.vram_total_bytes?)));
@@ -516,7 +528,7 @@ impl Formatter {
                     igpu.and_then(|g| g.clock_mhz)
                         .map_or_else(|| MISSING.to_owned(), |f| format!("{f} MHz")),
                 ),
-                fact("iGPU Temperature", temp(igpu.and_then(|g| g.temp_c))),
+                fact("iGPU Temperature", temp(igpu.and_then(|g| g.temp_c), f)),
                 fact("dGPU", discrete_state(&s.gpus)),
             ],
         }
@@ -543,7 +555,7 @@ impl Formatter {
         }
     }
 
-    fn memory(s: &Snapshot) -> PanelView {
+    fn memory(s: &Snapshot, f: bool) -> PanelView {
         let mut bars = Vec::new();
         if let Some(m) = &s.memory {
             bars.push(metric(
@@ -568,7 +580,7 @@ impl Formatter {
             .iter()
             .filter(|t| t.chip == "nvme" && t.label == "Composite")
             .enumerate()
-            .map(|(i, t)| fact(&format!("Drive {}", i + 1), temp(Some(t.temp_c))))
+            .map(|(i, t)| fact(&format!("Drive {}", i + 1), temp(Some(t.temp_c), f)))
             .collect();
         PanelView {
             title: "Memory".to_owned(),
@@ -832,6 +844,19 @@ mod tests {
                 ("Battery", "— · 0.0 W"),
             ]
         );
+    }
+
+    #[test]
+    fn fahrenheit() {
+        assert_eq!(temp(Some(100.0), true), "212 °F");
+        assert_eq!(temp(Some(30.0), false), "30 °C");
+        let mut f = Formatter {
+            fahrenheit: true,
+            ..Formatter::default()
+        };
+        let v = f.live(&snapshot());
+        assert_eq!(v.charts[0].min, "86 °F");
+        assert_eq!(row(&v.panels[0], "Temperature"), "197 °F");
     }
 
     #[test]

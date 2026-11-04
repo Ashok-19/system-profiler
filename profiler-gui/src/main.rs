@@ -1,18 +1,25 @@
 //! System Profiler: an Armoury Crate-style control center for ASUS laptops.
 
+mod alerts;
+mod autostart;
 mod config;
 mod daemon;
 mod history;
 mod machine;
 mod monitor;
+mod notify;
 mod prefs;
+mod shared;
 mod view;
+
+use std::sync::Arc;
 
 use env_logger::Env;
 use slint::{ComponentHandle, ModelRc, VecModel};
 use sys_monitor::Monitor;
 
 use crate::machine::MachineInfo;
+use crate::shared::Shared;
 
 slint::include_modules!();
 
@@ -32,7 +39,8 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let ui = AppWindow::new()?;
     ui.set_app_version(env!("CARGO_PKG_VERSION").into());
-    prefs::install(&ui);
+    let shared = Arc::new(Shared::default());
+    prefs::install(&ui, &shared);
 
     let mut monitor = Monitor::new();
     let first = monitor.sample();
@@ -54,8 +62,8 @@ fn main() -> Result<(), slint::PlatformError> {
         .collect();
     machine.set_details(ModelRc::new(VecModel::from(details)));
 
-    monitor::spawn(&ui, monitor);
-    daemon::spawn(&ui);
+    monitor::spawn(&ui, monitor, &shared);
+    daemon::spawn(&ui, &shared);
 
     ui.run()
 }

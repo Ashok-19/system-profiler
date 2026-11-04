@@ -1,11 +1,15 @@
-//! Binds the Prefs global to the config file.
+//! Binds the Prefs global to the config file and to the settings the
+//! worker threads read.
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use slint::{Color, ComponentHandle};
 
 use crate::config::{self, Config};
+use crate::shared::Shared;
 use crate::{AppWindow, Prefs};
+use crate::{autostart, notify};
 
 fn colour_hex(c: Color) -> String {
     config::to_hex((c.red(), c.green(), c.blue()))
@@ -29,6 +33,20 @@ fn show(ui: &AppWindow, c: &Config) {
     p.set_icons_only_sidebar(c.icons_only_sidebar);
     p.set_show_hero(c.show_hero);
     p.set_match_keyboard(c.match_keyboard);
+    p.set_fahrenheit(c.fahrenheit);
+    p.set_interval(i32::from(c.interval_s));
+    p.set_notify_mode(c.notify_mode);
+    p.set_notify_power(c.notify_power);
+    p.set_hot_cpu(i32::from(c.hot_cpu_c));
+}
+
+/// Hand the settings the worker threads use over to them.
+fn share(c: &Config, shared: &Shared) {
+    shared.set_fahrenheit(c.fahrenheit);
+    shared.set_interval_s(u32::from(c.interval_s));
+    shared.set_notify_mode(c.notify_mode);
+    shared.set_notify_power(c.notify_power);
+    shared.set_hot_cpu_c(u32::from(c.hot_cpu_c));
 }
 
 fn read(ui: &AppWindow) -> Config {
@@ -44,18 +62,29 @@ fn read(ui: &AppWindow) -> Config {
         icons_only_sidebar: p.get_icons_only_sidebar(),
         show_hero: p.get_show_hero(),
         match_keyboard: p.get_match_keyboard(),
+        fahrenheit: p.get_fahrenheit(),
+        interval_s: byte(p.get_interval()),
+        notify_mode: p.get_notify_mode(),
+        notify_power: p.get_notify_power(),
+        hot_cpu_c: byte(p.get_hot_cpu()),
     }
     .sanitized()
 }
 
 /// Load preferences into the UI and save them whenever they change.
-pub fn install(ui: &AppWindow) {
+pub fn install(ui: &AppWindow, shared: &Arc<Shared>) {
     let path = Rc::new(config::default_path());
-    show(ui, &config::load(&path));
+    let loaded = config::load(&path);
+    show(ui, &loaded);
+    share(&loaded, shared);
 
-    let save = move |config: &Config| {
-        if let Err(e) = config::save(&path, config) {
-            log::warn!("Cannot save {}: {e}", path.display());
+    let save = {
+        let shared = Arc::clone(shared);
+        move |config: &Config| {
+            share(config, &shared);
+            if let Err(e) = config::save(&path, config) {
+                log::warn!("Cannot save {}: {e}", path.display());
+            }
         }
     };
     let prefs = ui.global::<Prefs>();
@@ -69,9 +98,28 @@ pub fn install(ui: &AppWindow) {
     let weak = ui.as_weak();
     prefs.on_reset(move || {
         if let Some(ui) = weak.upgrade() {
-            let defaults = Config::default();
-            show(&ui, &defaults);
-            save(&defaults);
+            let config = read(&ui).with_default_theme();
+            show(&ui, &config);
+            save(&config);
+        }
+    });
+
+    prefs.on_test_notification(|| {
+        notify::show("test", "System Profiler", "Notifications are working.");
+    });
+
+    // Autostart lives in its own file, not in the config.
+    let entry = autostart::default_path();
+    prefs.set_autostart(autostart::is_enabled(&entry));
+    let weak = ui.as_weak();
+    prefs.on_set_autostart(move |on| {
+        let exe = std::env::current_exe().unwrap_or_else(|_| "system-profiler".into());
+        if let Err(e) = autostart::set(&entry, on, &exe) {
+            log::warn!("Cannot update {}: {e}", entry.display());
+        }
+        if let Some(ui) = weak.upgrade() {
+            ui.global::<Prefs>()
+                .set_autostart(autostart::is_enabled(&entry));
         }
     });
 }
