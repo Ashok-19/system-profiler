@@ -446,6 +446,7 @@ export component Switch inherits Rectangle {
 export component OutlineButton inherits Rectangle {
     in property <string> text;
     in property <bool> primary;
+    in property <bool> enabled: true;
     callback clicked;
 
     min-width: 124px;
@@ -453,13 +454,16 @@ export component OutlineButton inherits Rectangle {
     border-radius: Theme.radius;
     border-width: root.primary ? 0px : 1px;
     border-color: touch.has-hover ? Theme.text-strong : Theme.control-border;
+    opacity: root.enabled ? 1 : 0.45;
     background: root.primary ? @linear-gradient(180deg, Theme.accent 0%, Theme.accent-dark 100%) : #151515;
     accessible-role: button;
     accessible-label: root.text;
-    accessible-action-default => { root.clicked(); }
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
         clicked => { root.clicked(); }
     }
 
@@ -474,5 +478,164 @@ export component OutlineButton inherits Rectangle {
             horizontal-alignment: center;
             vertical-alignment: center;
         }
+    }
+}
+
+// Selectable card with a radio dot, title and description.
+export component ChoiceCard inherits Rectangle {
+    in property <string> label;
+    in property <string> description;
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    callback clicked;
+
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: root.checked ? Theme.accent : touch.has-hover && root.enabled ? Theme.line : #3a3a3a;
+    background: root.checked
+        ? @linear-gradient(90deg, Theme.accent.with-alpha(0.28 * Theme.glow) 0%, Theme.accent.with-alpha(0) 80%)
+        : Theme.panel;
+    accessible-role: radio-button;
+    accessible-label: root.label;
+    accessible-description: root.description;
+    accessible-checked: root.checked;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        padding-top: 14px;
+        padding-bottom: 14px;
+        spacing: 16px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                border-radius: 9px;
+                border-width: root.checked ? 5px : 2px;
+                border-color: root.checked ? Theme.accent : Theme.text-faint;
+                background: root.checked ? Theme.control-bg : transparent;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 4px;
+            horizontal-stretch: 1;
+            Text {
+                text: root.label;
+                font-size: 16px;
+                color: root.enabled ? Theme.text-strong : Theme.text-dim;
+            }
+
+            Text {
+                text: root.description;
+                font-size: 13px;
+                color: #bdbdbd;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+// Stepped horizontal slider. Dragging previews the value; `committed`
+// fires once on release, so the backend is not hit on every step.
+export component StepSlider inherits HorizontalLayout {
+    in property <int> minimum: 0;
+    in property <int> maximum: 100;
+    in property <int> step: 1;
+    in property <int> value;
+    in property <bool> enabled: true;
+    in property <string> label;
+    in property <string> unit;
+    callback committed(int);
+
+    property <int> preview;
+    property <bool> dragging;
+    property <int> shown: root.dragging ? root.preview : root.value;
+    property <float> fraction: max(0, min(1, (root.shown - root.minimum) / (root.maximum - root.minimum)));
+
+    function at(x: length, width: length) -> int {
+        return max(root.minimum, min(root.maximum,
+            root.minimum + round(x / width * (root.maximum - root.minimum) / root.step) * root.step));
+    }
+
+    width: 280px;
+    spacing: 12px;
+    accessible-role: slider;
+    accessible-label: root.label;
+    accessible-value: root.shown + root.unit;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: root.step;
+    accessible-enabled: root.enabled;
+    accessible-action-increment => { if root.enabled && root.value < root.maximum { root.committed(min(root.maximum, root.value + root.step)); } }
+    accessible-action-decrement => { if root.enabled && root.value > root.minimum { root.committed(max(root.minimum, root.value - root.step)); } }
+
+    Rectangle {
+        height: 30px;
+        horizontal-stretch: 1;
+        opacity: root.enabled ? 1 : 0.5;
+        Rectangle {
+            y: (parent.height - self.height) / 2;
+            height: 4px;
+            background: #3a3a3a;
+        }
+
+        Rectangle {
+            x: 0;
+            y: (parent.height - self.height) / 2;
+            width: (parent.width - 12px) * root.fraction + 6px;
+            height: 4px;
+            background: @linear-gradient(90deg, Theme.accent-dark 0%, Theme.accent 100%);
+        }
+
+        Rectangle {
+            x: (parent.width - self.width) * root.fraction;
+            y: (parent.height - self.height) / 2;
+            width: 12px;
+            height: 22px;
+            border-radius: Theme.radius;
+            background: touch.has-hover || root.dragging ? Theme.text-strong : Theme.accent;
+        }
+
+        touch := TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: pointer;
+            pointer-event(event) => {
+                if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                    root.preview = root.at(self.mouse-x, self.width);
+                    root.dragging = true;
+                }
+                if event.button == PointerEventButton.left && event.kind == PointerEventKind.up && root.dragging {
+                    root.preview = root.at(self.mouse-x, self.width);
+                    root.dragging = false;
+                    if root.preview != root.value {
+                        root.committed(root.preview);
+                    }
+                }
+            }
+            moved => {
+                if root.dragging {
+                    root.preview = root.at(self.mouse-x, self.width);
+                }
+            }
+        }
+    }
+
+    Text {
+        width: 48px;
+        text: root.shown + root.unit;
+        font-size: 14px;
+        color: Theme.text-strong;
+        horizontal-alignment: right;
+        vertical-alignment: center;
     }
 }
