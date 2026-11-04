@@ -16,6 +16,7 @@ path = "src/main.rs"
 
 [dependencies]
 sys_monitor = { path = "../sys-monitor" }
+rog_aura = { path = "../rog-aura" }
 rog_dbus = { path = "../rog-dbus" }
 rog_platform = { path = "../rog-platform" }
 

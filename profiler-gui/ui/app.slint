@@ -6,14 +6,15 @@ import "../fonts/Michroma-Regular.ttf";
 
 import { Theme } from "theme.slint";
 import { Icons, Icon } from "icons.slint";
-import { Live, Machine, Device } from "state.slint";
+import { Live, Machine, Device, Lighting } from "state.slint";
 import { NavItem, NavGroup } from "widgets/common.slint";
 import { HomePage } from "pages/home.slint";
 import { OperatingModePage } from "pages/operating-mode.slint";
 import { BatteryCarePage } from "pages/battery-care.slint";
+import { KeyboardLightingPage } from "pages/keyboard-lighting.slint";
 import { PlaceholderPage } from "pages/placeholder.slint";
 
-export { Theme, Live, Machine, Device }
+export { Theme, Live, Machine, Device, Lighting }
 
 export enum Page {
     home,
@@ -276,7 +277,8 @@ export component AppWindow inherits Window {
     in-out property <Page> page: Page.home;
     in property <bool> compact-sidebar;
 
-    property <bool> page-built: page == Page.home || page == Page.operating-mode || page == Page.battery-care;
+    property <bool> page-built: page == Page.home || page == Page.operating-mode || page == Page.battery-care
+        || page == Page.keyboard-lighting;
     out property <string> page-title: page == Page.home ? "Home"
         : page == Page.operating-mode ? "Operating Mode"
         : page == Page.gpu-mode ? "GPU Mode"
@@ -324,6 +326,7 @@ export component AppWindow inherits Window {
                         if root.page == Page.home: HomePage { }
                         if root.page == Page.operating-mode: OperatingModePage { }
                         if root.page == Page.battery-care: BatteryCarePage { }
+                        if root.page == Page.keyboard-lighting: KeyboardLightingPage { }
                         if !root.page-built: PlaceholderPage { title: root.page-title; }
                     }
                 }

@@ -1,0 +1,359 @@
+import { Theme } from "../theme.slint";
+import { Icons, Icon } from "../icons.slint";
+import { Lighting, Effect } from "../state.slint";
+import { SectionHeader, SettingRow, SettingsSection, Switch, Segmented, BracketPanel, StepSlider } from "../widgets/common.slint";
+
+// asusd's AuraModeNum values used here.
+global Fx {
+    out property <int> static: 0;
+    out property <int> breathe: 1;
+    out property <int> cycle: 2;
+    out property <int> wave: 3;
+    out property <int> pulse: 10;
+
+    public pure function icon(mode: int) -> string {
+        return mode == Fx.static ? Icons.fx-static
+            : mode == Fx.breathe ? Icons.fx-breathe
+            : mode == Fx.cycle ? Icons.fx-cycle
+            : mode == Fx.wave ? Icons.fx-rainbow
+            : mode == Fx.pulse ? Icons.fx-pulse : Icons.light;
+    }
+}
+
+component EffectTile inherits Rectangle {
+    in property <string> label;
+    in property <string> icon;
+    in property <bool> selected;
+    callback clicked;
+
+    min-width: 0px;
+    preferred-width: 1px;
+    horizontal-stretch: 1;
+    min-height: 96px;
+    border-radius: Theme.radius;
+    background: root.selected
+        ? @linear-gradient(0deg, Theme.accent.with-alpha(0.22 * Theme.glow) 0%, Theme.accent.with-alpha(0) 100%)
+        : touch.has-hover ? Theme.row : transparent;
+    accessible-role: radio-button;
+    accessible-label: root.label;
+    accessible-checked: root.selected;
+    accessible-action-default => { root.clicked(); }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 10px;
+        padding: 6px;
+        HorizontalLayout {
+            alignment: center;
+            Icon {
+                data: root.icon;
+                size: 40px;
+                color: root.selected ? Theme.accent : #d6d6d6;
+                stroke-width: 1.3px;
+            }
+        }
+
+        Text {
+            text: root.label;
+            font-size: 13px;
+            color: root.selected ? Theme.accent : #d6d6d6;
+            horizontal-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    Rectangle {
+        y: parent.height - 2px;
+        height: 2px;
+        background: root.selected ? Theme.accent : transparent;
+    }
+}
+
+// Static picture of the keyboard lit with the current effect. It is not
+// animated on purpose: a moving preview would repaint every frame.
+component KeyboardPreview inherits Rectangle {
+    in property <color> colour;
+    // 0..1
+    in property <float> level;
+    in property <bool> rainbow;
+    property <length> unit: 32px;
+    property <length> gap: 4px;
+    property <[[float]]> rows: [
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+        [1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.5],
+        [1.8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.2],
+        [2.3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.7],
+        [1.3, 1.3, 1.3, 6.2, 1.3, 1.3, 1, 1, 1],
+    ];
+
+    background: #080808;
+    border-width: 1px;
+    border-color: Theme.hair;
+    border-radius: Theme.radius;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: root.gap;
+        alignment: start;
+        for row in root.rows: HorizontalLayout {
+            spacing: root.gap;
+            alignment: start;
+            for w in row: Rectangle {
+                // Hue follows the key's position for the rainbow effects.
+                property <color> lit: root.rainbow ? hsv(self.x / 600px * 300deg / 1deg, 0.75, 1) : root.colour;
+                width: root.unit * w + root.gap * (w - 1);
+                height: root.unit;
+                border-radius: 3px;
+                border-width: 1px;
+                border-color: root.level > 0 ? self.lit.with-alpha(0.25 + 0.5 * root.level) : #2e2e2e;
+                background: root.level > 0
+                    ? @linear-gradient(0deg, self.lit.with-alpha(0.65 * root.level) 0%, #1b1b1b 75%)
+                    : #1b1b1b;
+            }
+        }
+    }
+}
+
+component Caption inherits Text {
+    font-size: 13px;
+    color: #bdbdbd;
+}
+
+export component KeyboardLightingPage inherits VerticalLayout {
+    property <[color]> swatches: [#ffa51a, #ff3b3b, #ff7a1a, #3ddc6a, #2ec8e6, #3d6bff, #9b5bff, #f2f4f7];
+    property <[string]> swatch-names: ["Amber", "Red", "Orange", "Green", "Cyan", "Blue", "Violet", "White"];
+    property <bool> lit: Lighting.brightness > 0;
+    property <bool> uses-colour: Lighting.mode == Fx.static || Lighting.mode == Fx.breathe || Lighting.mode == Fx.pulse;
+    property <string> effect-name: !root.lit ? "Dark (Off)" : root.name-of(Lighting.mode);
+    // Brightness to return to when an effect is picked while off.
+    property <int> last-brightness: 2;
+
+    pure function name-of(mode: int) -> string {
+        return mode == Fx.static ? "Static" : mode == Fx.breathe ? "Breathing" : mode == Fx.cycle ? "Color Cycle"
+            : mode == Fx.wave ? "Rainbow" : mode == Fx.pulse ? "Strobing" : "Unknown effect";
+    }
+
+    function pick-effect(mode: int) {
+        Lighting.mode = mode;
+        Lighting.apply-effect();
+        if !root.lit {
+            root.set-brightness(root.last-brightness);
+        }
+    }
+
+    function set-brightness(level: int) {
+        if level > 0 {
+            root.last-brightness = level;
+        }
+        Lighting.brightness = level;
+        Lighting.set-brightness(level);
+    }
+
+    function set-colour(c: color) {
+        Lighting.colour = c;
+        Lighting.apply-effect();
+    }
+
+    spacing: 34px;
+    alignment: start;
+
+    if !Lighting.available: Text {
+        text: "asusd reports no keyboard backlight it can control on this laptop.";
+        font-size: 14px;
+        color: Theme.text-dim;
+    }
+
+    if Lighting.available: HorizontalLayout {
+        spacing: 36px;
+        VerticalLayout {
+            horizontal-stretch: 2;
+            min-width: 520px;
+            spacing: 20px;
+            alignment: start;
+            SectionHeader { title: "Basic Effects"; }
+            HorizontalLayout {
+                padding-left: 14px;
+                spacing: 8px;
+                for effect in Lighting.effects: EffectTile {
+                    label: root.name-of(effect.mode);
+                    icon: Fx.icon(effect.mode);
+                    selected: root.lit && Lighting.mode == effect.mode;
+                    clicked => { root.pick-effect(effect.mode); }
+                }
+
+                EffectTile {
+                    label: "Dark (Off)";
+                    icon: Icons.fx-off;
+                    selected: Lighting.brightness == 0;
+                    clicked => { root.set-brightness(0); }
+                }
+            }
+
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-top: 6px;
+                alignment: start;
+                KeyboardPreview {
+                    colour: Lighting.colour;
+                    level: max(0, Lighting.brightness) / 3;
+                    rainbow: Lighting.mode == Fx.cycle || Lighting.mode == Fx.wave;
+                }
+            }
+        }
+
+        // Fixed width so the effect tiles don't shift between effects.
+        VerticalLayout {
+            width: 340px;
+            alignment: start;
+            BracketPanel {
+                Text {
+                    text: root.effect-name;
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: Theme.text-strong;
+                }
+
+                if root.lit && root.uses-colour: VerticalLayout {
+                    spacing: 10px;
+                    Caption { text: "Colour"; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+                        for c[i] in root.swatches: Rectangle {
+                            property <bool> on: Lighting.colour == c;
+                            width: 30px;
+                            height: 30px;
+                            border-radius: Theme.radius / 2;
+                            background: c;
+                            border-width: 2px;
+                            border-color: self.on ? #ffffff : swatch-touch.has-hover ? #8e8e8e : #121212;
+                            accessible-role: button;
+                            accessible-label: root.swatch-names[i];
+                            accessible-checked: self.on;
+                            accessible-action-default => { root.set-colour(c); }
+
+                            swatch-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.set-colour(c); }
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Caption {
+                            text: "Hue";
+                            vertical-alignment: center;
+                        }
+
+                        StepSlider {
+                            width: 220px;
+                            label: "Custom hue";
+                            minimum: 0;
+                            maximum: 355;
+                            step: 5;
+                            unit: "°";
+                            value: round(Lighting.colour.to-hsv().hue / 5) * 5;
+                            committed(hue) => { root.set-colour(hsv(hue, 1, 1)); }
+                        }
+                    }
+                }
+
+                if root.lit && Lighting.mode != Fx.static: VerticalLayout {
+                    spacing: 10px;
+                    Caption { text: "Speed"; }
+                    Segmented {
+                        options: ["Slow", "Medium", "Fast"];
+                        current: Lighting.speed;
+                        selected(i) => {
+                            Lighting.speed = i;
+                            Lighting.apply-effect();
+                        }
+                    }
+                }
+
+                if root.lit && Lighting.mode == Fx.wave: VerticalLayout {
+                    spacing: 10px;
+                    Caption { text: "Direction"; }
+                    Segmented {
+                        options: ["Left to right", "Right to left"];
+                        current: Lighting.direction;
+                        selected(i) => {
+                            Lighting.direction = i;
+                            Lighting.apply-effect();
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 10px;
+                    Caption { text: "Brightness"; }
+                    Segmented {
+                        options: ["Off", "Low", "Medium", "High"];
+                        current: Lighting.brightness;
+                        selected(i) => { root.set-brightness(i); }
+                    }
+                }
+            }
+        }
+    }
+
+    if Lighting.available: SettingsSection {
+        title: "Light the Keyboard When";
+        hint: "Stored in the keyboard's firmware by asusd";
+        SettingRow {
+            shaded: true;
+            label: "Booting";
+            Switch {
+                label: "Light the keyboard while booting";
+                checked: Lighting.on-boot;
+                toggled(on) => {
+                    Lighting.on-boot = on;
+                    Lighting.apply-power();
+                }
+            }
+        }
+
+        SettingRow {
+            label: "Awake";
+            Switch {
+                label: "Light the keyboard while awake";
+                checked: Lighting.on-awake;
+                toggled(on) => {
+                    Lighting.on-awake = on;
+                    Lighting.apply-power();
+                }
+            }
+        }
+
+        SettingRow {
+            shaded: true;
+            label: "Sleeping";
+            Switch {
+                label: "Light the keyboard while asleep";
+                checked: Lighting.on-sleep;
+                toggled(on) => {
+                    Lighting.on-sleep = on;
+                    Lighting.apply-power();
+                }
+            }
+        }
+
+        SettingRow {
+            label: "Shutting down";
+            Switch {
+                label: "Light the keyboard while shutting down";
+                checked: Lighting.on-shutdown;
+                toggled(on) => {
+                    Lighting.on-shutdown = on;
+                    Lighting.apply-power();
+                }
+            }
+        }
+    }
+}
