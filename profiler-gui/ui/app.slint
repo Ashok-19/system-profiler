@@ -9,6 +9,7 @@ import { Icons, Icon } from "icons.slint";
 import { Live, Machine, Device } from "state.slint";
 import { NavItem, NavGroup } from "widgets/common.slint";
 import { HomePage } from "pages/home.slint";
+import { OperatingModePage } from "pages/operating-mode.slint";
 import { PlaceholderPage } from "pages/placeholder.slint";
 
 export { Theme, Live, Machine, Device }
@@ -319,7 +320,8 @@ export component AppWindow inherits Window {
                         padding-top: 10px;
                         padding-bottom: 40px;
                         if root.page == Page.home: HomePage { }
-                        if root.page != Page.home: PlaceholderPage { title: root.page-title; }
+                        if root.page == Page.operating-mode: OperatingModePage { }
+                        if root.page != Page.home && root.page != Page.operating-mode: PlaceholderPage { title: root.page-title; }
                     }
                 }
             }

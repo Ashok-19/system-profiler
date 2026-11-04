@@ -19,6 +19,10 @@ pub struct MachineInfo {
     pub cpu: String,
     /// Marketing name of the discrete GPU, if any.
     pub dgpu: String,
+    /// Logical CPUs (hardware threads).
+    pub cpu_threads: usize,
+    /// cpufreq scaling driver, e.g. "amd-pstate-epp".
+    pub cpufreq_driver: String,
 }
 
 fn read_dmi(root: &Path, field: &str) -> Option<String> {
@@ -94,6 +98,12 @@ impl MachineInfo {
             board: read_dmi(root, "board_name").unwrap_or_default(),
             cpu: snapshot.cpu.model.clone().unwrap_or_default(),
             dgpu: dgpu_name(snapshot).unwrap_or_default(),
+            cpu_threads: snapshot.cpu.cores.len(),
+            cpufreq_driver: fs::read_to_string(
+                root.join("sys/devices/system/cpu/cpu0/cpufreq/scaling_driver"),
+            )
+            .map(|d| d.trim().to_owned())
+            .unwrap_or_default(),
         }
     }
 }
