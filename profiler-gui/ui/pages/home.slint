@@ -1,4 +1,4 @@
-import { Theme } from "../theme.slint";
+import { Theme, Prefs } from "../theme.slint";
 import { Icons } from "../icons.slint";
 import { Live, Machine, Device, MonitorPanel } from "../state.slint";
 import { SectionHeader, MetricBar, KeyValue, Select } from "../widgets/common.slint";
@@ -89,7 +89,7 @@ component MonitorBlock inherits VerticalLayout {
     HorizontalLayout {
         Text {
             text: root.panel.title;
-            font-size: 28px;
+            font-size: 28px * Theme.text-scale;
             font-weight: 300;
             color: Theme.text-strong;
         }
@@ -130,14 +130,14 @@ export component HomePage inherits HorizontalLayout {
         alignment: start;
         padding-top: 18px;
 
-        LaptopHero { }
+        if Prefs.show-hero: LaptopHero { }
 
         VerticalLayout {
             spacing: 10px;
             Text {
                 text: Machine.name;
                 font-family: Theme.display-font;
-                font-size: 26px;
+                font-size: 26px * Theme.text-scale;
                 letter-spacing: 1.5px;
                 color: Theme.text-strong;
                 horizontal-alignment: center;
@@ -146,7 +146,7 @@ export component HomePage inherits HorizontalLayout {
 
             Text {
                 text: Machine.cpu + "\n" + Machine.dgpu + (Machine.board != "" ? " · " + Machine.board : "");
-                font-size: 13px;
+                font-size: 13px * Theme.text-scale;
                 color: #cfcfcf;
                 horizontal-alignment: center;
                 wrap: word-wrap;
@@ -170,7 +170,7 @@ export component HomePage inherits HorizontalLayout {
                         min-height: Theme.row-height;
                         Text {
                             text: "Battery Charging";
-                            font-size: 14px;
+                            font-size: 14px * Theme.text-scale;
                             color: #d6d6d6;
                             vertical-alignment: center;
                         }

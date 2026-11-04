@@ -1,0 +1,338 @@
+import { Theme, Prefs } from "../theme.slint";
+import { Lighting } from "../state.slint";
+import { SectionHeader, SettingRow, SettingsSection, Switch, Segmented, StepSlider, OutlineButton } from "../widgets/common.slint";
+
+// Accent choice: a striped chip and a name.
+component AccentCard inherits Rectangle {
+    in property <string> name;
+    in property <color> colour;
+    in property <bool> selected;
+    callback clicked;
+
+    min-width: 0px;
+    preferred-width: 1px;
+    horizontal-stretch: 1;
+    border-radius: Theme.radius;
+    background: Theme.panel;
+    border-width: root.selected ? 2px : 1px;
+    border-color: root.selected ? #ffffff : touch.has-hover ? Theme.line : #3a3a3a;
+    accessible-role: radio-button;
+    accessible-label: root.name;
+    accessible-checked: root.selected;
+    accessible-action-default => { root.clicked(); }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 10px;
+        Rectangle {
+            height: 34px;
+            border-radius: Theme.radius / 2;
+            clip: true;
+            background: root.colour.mix(#000000, 0.62);
+            // Slanted bars, like the section markers.
+            Path {
+                x: 0;
+                width: parent.width;
+                height: parent.height;
+                viewbox-width: 240;
+                viewbox-height: 34;
+                fit: fill;
+                commands: "M0 34 L12 0 L18 0 L6 34 Z M24 34 L36 0 L42 0 L30 34 Z M48 34 L60 0 L66 0 L54 34 Z M72 34 L84 0 L90 0 L78 34 Z M96 34 L108 0 L114 0 L102 34 Z M120 34 L132 0 L138 0 L126 34 Z M144 34 L156 0 L162 0 L150 34 Z M168 34 L180 0 L186 0 L174 34 Z M192 34 L204 0 L210 0 L198 34 Z M216 34 L228 0 L234 0 L222 34 Z";
+                fill: root.colour;
+                stroke-width: 0px;
+            }
+        }
+
+        Text {
+            text: root.name;
+            font-size: 14px * Theme.text-scale;
+            color: Theme.text;
+            overflow: elide;
+        }
+    }
+}
+
+// Background choice with a miniature of the app in that palette.
+component BackgroundCard inherits Rectangle {
+    in property <string> name;
+    in property <color> bg;
+    in property <color> side;
+    in property <bool> selected;
+    callback clicked;
+
+    min-width: 0px;
+    preferred-width: 1px;
+    horizontal-stretch: 1;
+    border-radius: Theme.radius;
+    background: Theme.panel;
+    border-width: root.selected ? 2px : 1px;
+    border-color: root.selected ? #ffffff : touch.has-hover ? Theme.line : #3a3a3a;
+    accessible-role: radio-button;
+    accessible-label: root.name;
+    accessible-checked: root.selected;
+    accessible-action-default => { root.clicked(); }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 10px;
+        Rectangle {
+            height: 64px;
+            background: root.bg;
+            border-width: 1px;
+            border-color: #2a2a2a;
+            border-radius: Theme.radius / 2;
+            clip: true;
+            HorizontalLayout {
+                Rectangle {
+                    width: 28%;
+                    background: root.side;
+                }
+
+                VerticalLayout {
+                    padding: 8px;
+                    spacing: 5px;
+                    alignment: start;
+                    Rectangle {
+                        height: 5px;
+                        Rectangle {
+                            x: 0;
+                            width: 60%;
+                            background: Theme.accent;
+                        }
+                    }
+
+                    Rectangle {
+                        height: 3px;
+                        Rectangle {
+                            x: 0;
+                            width: 85%;
+                            background: Theme.line;
+                        }
+                    }
+
+                    Rectangle {
+                        height: 3px;
+                        Rectangle {
+                            x: 0;
+                            width: 70%;
+                            background: Theme.line;
+                        }
+                    }
+                }
+            }
+        }
+
+        Text {
+            text: root.name;
+            font-size: 14px * Theme.text-scale;
+            color: Theme.text;
+        }
+    }
+}
+
+export component PersonalizationPage inherits HorizontalLayout {
+    property <[color]> accents: [#ffa51a, #ff3348, #22d3ee, #2ee59d, #a779ff, #e8ecf2];
+    property <[string]> accent-names: ["TUF Amber", "Crimson", "Cyber Cyan", "Emerald", "Royal Violet", "Arctic White"];
+    property <[int]> text-sizes: [90, 100, 110];
+
+    // Recolour the keyboard if it follows the accent. Not while it is off:
+    // asusd switches the backlight on when an effect is set. The keyboard
+    // page applies the accent when the light is turned back on.
+    function sync-keyboard() {
+        if Prefs.match-keyboard && Lighting.available && Lighting.brightness > 0 {
+            Lighting.colour = Prefs.accent;
+            Lighting.apply-effect();
+        }
+    }
+
+    function set-accent(c: color) {
+        Prefs.accent = c;
+        Prefs.save();
+        root.sync-keyboard();
+    }
+
+    // Content stops at 1080 px; the filler takes the rest so the page
+    // never limits the window's width.
+    VerticalLayout {
+        max-width: 1080px;
+        horizontal-stretch: 1;
+        spacing: 34px;
+        alignment: start;
+
+        VerticalLayout {
+            spacing: 18px;
+            SectionHeader { title: "Accent Colour"; }
+            HorizontalLayout {
+                padding-left: 20px;
+                spacing: 12px;
+                for c[i] in root.accents: AccentCard {
+                    name: root.accent-names[i];
+                    colour: c;
+                    selected: Prefs.accent == c;
+                    clicked => { root.set-accent(c); }
+                }
+            }
+
+            HorizontalLayout {
+                padding-left: 20px;
+                SettingRow {
+                    label: "Custom accent";
+                    sub: "Pick any hue; saturation and brightness stay vivid";
+                    StepSlider {
+                        label: "Custom accent hue";
+                        minimum: 0;
+                        maximum: 355;
+                        step: 5;
+                        unit: "°";
+                        value: round(Prefs.accent.to-hsv().hue / 5) * 5;
+                        committed(hue) => { root.set-accent(hsv(hue, 0.9, 1)); }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: 18px;
+            SectionHeader { title: "Background"; }
+            HorizontalLayout {
+                padding-left: 20px;
+                spacing: 12px;
+                BackgroundCard {
+                    name: "Graphite";
+                    bg: #0c0c0c;
+                    side: #171717;
+                    selected: Prefs.background == 0;
+                    clicked => { Prefs.background = 0; Prefs.save(); }
+                }
+
+                BackgroundCard {
+                    name: "Pure Black";
+                    bg: #000000;
+                    side: #0d0d0d;
+                    selected: Prefs.background == 1;
+                    clicked => { Prefs.background = 1; Prefs.save(); }
+                }
+
+                BackgroundCard {
+                    name: "Midnight";
+                    bg: #0a0e16;
+                    side: #121826;
+                    selected: Prefs.background == 2;
+                    clicked => { Prefs.background = 2; Prefs.save(); }
+                }
+            }
+        }
+
+        SettingsSection {
+            title: "Style";
+            SettingRow {
+                shaded: true;
+                label: "Accent glow";
+                StepSlider {
+                    label: "Accent glow";
+                    minimum: 0;
+                    maximum: 100;
+                    step: 5;
+                    unit: "%";
+                    value: Prefs.glow;
+                    committed(v) => { Prefs.glow = v; Prefs.save(); }
+                }
+            }
+
+            SettingRow {
+                label: "Corners";
+                Segmented {
+                    width: 280px;
+                    options: ["Sharp", "Rounded"];
+                    current: Prefs.rounded ? 1 : 0;
+                    selected(i) => { Prefs.rounded = i == 1; Prefs.save(); }
+                }
+            }
+
+            SettingRow {
+                shaded: true;
+                label: "Density";
+                Segmented {
+                    width: 280px;
+                    options: ["Comfortable", "Compact"];
+                    current: Prefs.compact ? 1 : 0;
+                    selected(i) => { Prefs.compact = i == 1; Prefs.save(); }
+                }
+            }
+
+            SettingRow {
+                label: "Text size";
+                sub: "Applies to all text in the app";
+                Segmented {
+                    width: 280px;
+                    options: ["Small", "Default", "Large"];
+                    current: Prefs.text-size == 90 ? 0 : Prefs.text-size == 110 ? 2 : 1;
+                    selected(i) => { Prefs.text-size = root.text-sizes[i]; Prefs.save(); }
+                }
+            }
+
+            SettingRow {
+                shaded: true;
+                label: "Sidebar";
+                Segmented {
+                    width: 280px;
+                    options: ["Full", "Icons only"];
+                    current: Prefs.icons-only-sidebar ? 1 : 0;
+                    selected(i) => { Prefs.icons-only-sidebar = i == 1; Prefs.save(); }
+                }
+            }
+
+            SettingRow {
+                label: "Show the laptop on Home";
+                Switch {
+                    label: "Show the laptop on Home";
+                    checked: Prefs.show-hero;
+                    toggled(on) => { Prefs.show-hero = on; Prefs.save(); }
+                }
+            }
+
+            SettingRow {
+                shaded: true;
+                label: "Match keyboard lighting to the accent";
+                sub: Lighting.available ? "Picking a keyboard colour turns this off" : "No controllable keyboard backlight";
+                dimmed: !Lighting.available;
+                Switch {
+                    label: "Match keyboard lighting to the accent";
+                    checked: Prefs.match-keyboard;
+                    enabled: Lighting.available;
+                    toggled(on) => {
+                        Prefs.match-keyboard = on;
+                        Prefs.save();
+                        root.sync-keyboard();
+                    }
+                }
+            }
+        }
+
+        SettingsSection {
+            title: "Reset";
+            SettingRow {
+                shaded: true;
+                label: "Restore the default TUF theme";
+                OutlineButton {
+                    text: "Reset";
+                    clicked => { Prefs.reset(); }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        horizontal-stretch: 0.001;
+    }
+}

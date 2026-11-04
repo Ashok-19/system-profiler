@@ -4322,11 +4322,14 @@ dependencies = [
 name = "profiler-gui"
 version = "6.5.0"
 dependencies = [
+ "dirs",
  "env_logger",
  "log",
  "rog_aura",
  "rog_dbus",
  "rog_platform",
+ "ron",
+ "serde",
  "slint",
  "slint-build",
  "sys_monitor",

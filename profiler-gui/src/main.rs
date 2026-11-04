@@ -1,9 +1,11 @@
 //! System Profiler: an Armoury Crate-style control center for ASUS laptops.
 
+mod config;
 mod daemon;
 mod history;
 mod machine;
 mod monitor;
+mod prefs;
 mod view;
 
 use env_logger::Env;
@@ -30,6 +32,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let ui = AppWindow::new()?;
     ui.set_app_version(env!("CARGO_PKG_VERSION").into());
+    prefs::install(&ui);
 
     let mut monitor = Monitor::new();
     let first = monitor.sample();

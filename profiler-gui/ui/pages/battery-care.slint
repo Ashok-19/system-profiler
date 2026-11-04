@@ -45,14 +45,14 @@ component DetailRow inherits Rectangle {
     HorizontalLayout {
         Text {
             text: root.key;
-            font-size: 14px;
+            font-size: 14px * Theme.text-scale;
             color: Theme.text-muted;
             vertical-alignment: center;
         }
 
         Text {
             text: root.value;
-            font-size: 14px;
+            font-size: 14px * Theme.text-scale;
             color: Theme.text;
             horizontal-alignment: right;
             vertical-alignment: center;
@@ -94,14 +94,14 @@ export component BatteryCarePage inherits VerticalLayout {
                     spacing: 6px;
                     Text {
                         text: Live.battery-percent >= 0 ? Live.battery-percent + "%" : "—";
-                        font-size: 44px;
+                        font-size: 44px * Theme.text-scale;
                         font-weight: 300;
                         color: Theme.text-strong;
                     }
 
                     Text {
                         text: Live.battery-status;
-                        font-size: 13px;
+                        font-size: 13px * Theme.text-scale;
                         color: #bdbdbd;
                     }
                 }
@@ -152,7 +152,7 @@ export component BatteryCarePage inherits VerticalLayout {
 
                 if !root.can-limit: Text {
                     text: Device.daemon-ok ? "This laptop does not report a charge limit." : "asusd is not running, so the charge limit cannot be changed.";
-                    font-size: 13px;
+                    font-size: 13px * Theme.text-scale;
                     color: Theme.text-dim;
                     wrap: word-wrap;
                 }

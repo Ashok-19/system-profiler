@@ -4,7 +4,7 @@ import "../fonts/OpenSans-SemiBold.ttf";
 import "../fonts/OpenSans-Bold.ttf";
 import "../fonts/Michroma-Regular.ttf";
 
-import { Theme } from "theme.slint";
+import { Theme, Prefs } from "theme.slint";
 import { Icons, Icon } from "icons.slint";
 import { Live, Machine, Device, Lighting } from "state.slint";
 import { NavItem, NavGroup } from "widgets/common.slint";
@@ -14,9 +14,10 @@ import { BatteryCarePage } from "pages/battery-care.slint";
 import { KeyboardLightingPage } from "pages/keyboard-lighting.slint";
 import { SystemMonitorPage } from "pages/system-monitor.slint";
 import { SystemInformationPage } from "pages/system-information.slint";
+import { PersonalizationPage } from "pages/personalization.slint";
 import { PlaceholderPage } from "pages/placeholder.slint";
 
-export { Theme, Live, Machine, Device, Lighting }
+export { Theme, Prefs, Live, Machine, Device, Lighting }
 
 export enum Page {
     home,
@@ -62,7 +63,7 @@ component Sidebar inherits Rectangle {
 
             if !root.compact: Text {
                 text: "System Profiler";
-                font-size: 14px;
+                font-size: 14px * Theme.text-scale;
                 color: #d8d8d8;
                 vertical-alignment: center;
             }
@@ -178,7 +179,7 @@ component Header inherits HorizontalLayout {
 
     Text {
         text: root.title;
-        font-size: 22px;
+        font-size: 22px * Theme.text-scale;
         font-weight: 600;
         color: Theme.text-strong;
         vertical-alignment: center;
@@ -200,14 +201,14 @@ component Header inherits HorizontalLayout {
 
         Text {
             text: Device.daemon-ok ? "asusd " + Device.daemon-version : "asusd not running";
-            font-size: 13px;
+            font-size: 13px * Theme.text-scale;
             color: #bdbdbd;
             vertical-alignment: center;
         }
 
         Text {
             text: root.status;
-            font-size: 13px;
+            font-size: 13px * Theme.text-scale;
             color: #bdbdbd;
             vertical-alignment: center;
         }
@@ -247,7 +248,7 @@ component Header inherits HorizontalLayout {
 
             Text {
                 text: Live.battery-percent >= 0 ? Live.battery-percent + "%" : "—";
-                font-size: 14px;
+                font-size: 14px * Theme.text-scale;
                 color: Theme.text-strong;
                 vertical-alignment: center;
             }
@@ -274,14 +275,14 @@ export component AppWindow inherits Window {
     min-height: 680px;
     background: Theme.bg;
     default-font-family: "Open Sans";
-    default-font-size: 14px;
+    default-font-size: 14px * Theme.text-scale;
 
     in-out property <Page> page: Page.home;
-    in property <bool> compact-sidebar;
     in property <string> app-version;
 
     property <bool> page-built: page == Page.home || page == Page.operating-mode || page == Page.battery-care
-        || page == Page.keyboard-lighting || page == Page.system-monitor || page == Page.system-information;
+        || page == Page.keyboard-lighting || page == Page.system-monitor || page == Page.system-information
+        || page == Page.personalization;
     out property <string> page-title: page == Page.home ? "Home"
         : page == Page.operating-mode ? "Operating Mode"
         : page == Page.gpu-mode ? "GPU Mode"
@@ -295,9 +296,9 @@ export component AppWindow inherits Window {
 
     HorizontalLayout {
         Sidebar {
-            width: root.compact-sidebar ? 64px : 236px;
+            width: Prefs.icons-only-sidebar ? 64px : 236px;
             page <=> root.page;
-            compact: root.compact-sidebar;
+            compact: Prefs.icons-only-sidebar;
         }
 
         Rectangle {
@@ -331,6 +332,7 @@ export component AppWindow inherits Window {
                         if root.page == Page.battery-care: BatteryCarePage { }
                         if root.page == Page.keyboard-lighting: KeyboardLightingPage { }
                         if root.page == Page.system-monitor: SystemMonitorPage { }
+                        if root.page == Page.personalization: PersonalizationPage { }
                         if root.page == Page.system-information: SystemInformationPage { app-version: root.app-version; }
                         if !root.page-built: PlaceholderPage { title: root.page-title; }
                     }

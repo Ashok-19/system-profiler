@@ -12,14 +12,14 @@ component ChartBlock inherits VerticalLayout {
     HorizontalLayout {
         Text {
             text: root.chart.title;
-            font-size: 22px;
+            font-size: 22px * Theme.text-scale;
             font-weight: 300;
             color: Theme.text;
         }
 
         Text {
             text: root.chart.now;
-            font-size: 22px;
+            font-size: 22px * Theme.text-scale;
             font-weight: 300;
             color: Theme.text-strong;
             horizontal-alignment: right;
@@ -73,20 +73,20 @@ component ChartBlock inherits VerticalLayout {
     HorizontalLayout {
         Text {
             text: root.chart.min;
-            font-size: 12px;
+            font-size: 12px * Theme.text-scale;
             color: Theme.text-faint;
         }
 
         Text {
             text: root.span;
-            font-size: 12px;
+            font-size: 12px * Theme.text-scale;
             color: Theme.text-faint;
             horizontal-alignment: center;
         }
 
         Text {
             text: root.chart.max;
-            font-size: 12px;
+            font-size: 12px * Theme.text-scale;
             color: Theme.text-faint;
             horizontal-alignment: right;
         }
@@ -112,14 +112,14 @@ component SensorCell inherits Rectangle {
         spacing: 8px;
         Text {
             text: root.name;
-            font-size: 14px;
+            font-size: 14px * Theme.text-scale;
             color: #d6d6d6;
             vertical-alignment: center;
         }
 
         Text {
             text: root.source;
-            font-size: 12px;
+            font-size: 12px * Theme.text-scale;
             color: Theme.text-faint;
             vertical-alignment: center;
             horizontal-stretch: 1;
@@ -128,7 +128,7 @@ component SensorCell inherits Rectangle {
 
         Text {
             text: root.value;
-            font-size: 14px;
+            font-size: 14px * Theme.text-scale;
             color: Theme.text-strong;
             vertical-alignment: center;
             horizontal-alignment: right;

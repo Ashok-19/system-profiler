@@ -57,7 +57,7 @@ export component OperatingModePage inherits HorizontalLayout {
                     text: Device.mode >= 0 ? root.descriptions[Device.mode]
                         : Device.daemon-ok ? "The firmware is in a profile this app does not manage. Pick a mode above."
                         : "asusd is not running, so the mode cannot be changed.";
-                    font-size: 14px;
+                    font-size: 14px * Theme.text-scale;
                     color: #cfcfcf;
                     wrap: word-wrap;
                 }
@@ -187,7 +187,7 @@ export component OperatingModePage inherits HorizontalLayout {
                 dimmed: true;
                 Text {
                     text: "Not supported by this model's firmware";
-                    font-size: 14px;
+                    font-size: 14px * Theme.text-scale;
                     color: Theme.text-dim;
                 }
             }
