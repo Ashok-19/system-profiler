@@ -1,52 +1,103 @@
-# system-profiler
+# System Profiler
 
-> [!NOTE]
-> **This is a fork of [asusctl](https://github.com/opengamingcollective/asusctl)**
-> (MPL-2.0) that aims at an Armoury Crate–style control center for Linux,
-> tuned for the **ASUS TUF Gaming A15 (FA506IC)** on **Ubuntu 24.04 / X11**.
->
-> Fork-specific changes:
-> - Ubuntu 24.04 treated as a supported build target.
-> - X11 enabled for the GUI by default.
-> - **System Profiler**, a new control center app (see below).
->
-> Upstream is tracked as the `upstream` git remote and merged in regularly.
-> Everything below the System Profiler section is upstream's documentation
-> unless marked otherwise.
+An Armoury Crate–style control center for ASUS laptops on Linux, built for one
+machine in particular: a **TUF Gaming A15 (FA506ICB)** running **Ubuntu 24.04
+on X11**, kernel 6.8.
 
-## System Profiler
+## Why
 
-`system-profiler` (crate `profiler-gui`) is an Armoury Crate–style app built on
-asusd. It needs asusd running and an X11 session.
+On Windows, ASUS ships Armoury Crate: one window for performance modes, battery
+care, keyboard lighting and hardware monitoring. On Linux, [asusctl] already
+does the hard part, talking to the firmware, but its GUI is aimed at ROG
+laptops, Wayland and the newest kernels, and Ubuntu is not on its list.
 
-| Page | What it does |
+This fork keeps asusctl's daemon as the engine and puts a different front end
+on it: one that looks and feels like Armoury Crate, is light enough to leave
+running in the tray (about 30 MiB of RAM, 0.3–2% of a CPU core), and is honest
+about what the hardware cannot do. Also, because why not.
+
+## What it does
+
+| Page | |
 |---|---|
-| Home | Live CPU, GPU, fan and memory readings; mode and charge limit |
+| Home | Live CPU, GPU, fan and memory readings; mode and charge limit at a glance |
 | Operating Mode | Silent / Performance / Turbo, switching on AC or battery, CPU energy preference per mode |
-| GPU Mode | dGPU state, apps using it, runtime power management |
-| Battery Care | Health, charge-limit presets, custom limit, one-time full charge |
+| GPU Mode | Discrete GPU state, apps using it, runtime power management |
+| Battery Care | Health, 100/80/60% presets, a custom limit, one-time full charge |
 | Display | Refresh rate, slowest rate on battery, touchpad on/off |
 | Keyboard Lighting | Effects, colour, speed, brightness, when the backlight is lit |
-| Scenario Profiles | Presets that apply automatically while chosen apps run |
-| System Monitor | 1/5/15-minute charts and every sensor |
+| Scenario Profiles | Presets that switch on while chosen apps run and switch back after |
+| System Monitor | 1, 5 or 15-minute charts and every sensor |
 | System Information | Model, BIOS, CPU, GPUs, panel, memory, battery, OS |
 | Personalization | Accent, background, glow, corners, density, text size |
 | Settings | °C/°F, update interval, autostart, tray, notifications |
 
-It lives in the tray when its window is closed, and a second launch shows the
-running instance. Idle use is about 30 MiB of RAM and 0.3–2% of one CPU core,
-depending on the page and the update interval. Preferences are stored in
-`~/.config/system-profiler/config.ron`.
+It lives in the tray when closed, notifies you about mode, charger and CPU
+temperature changes, and a second launch brings up the running window.
+Preferences live in `~/.config/system-profiler/config.ron`.
 
-`make` builds it with everything else; `sudo make install` installs the
-binary, a menu entry and its icon. To run it from a checkout instead:
-`cargo run --release -p profiler-gui`.
+Not offered, on purpose: GPU **Eco/Optimized** (in a PRIME on-demand session
+Xorg keeps the NVIDIA driver loaded, so the dGPU cannot be switched off safely;
+it sleeps when idle instead), **Ultimate** (no MUX switch on this model) and
+**fan curves** (the firmware has no interface for them).
 
-Not available yet: GPU Eco/Optimized (on kernel 6.8 the NVIDIA driver stays
-loaded during a PRIME on-demand session, so it needs a switch at boot) and a
-CPU frequency cap (needs a privileged helper).
+## Install
+
+On Ubuntu 24.04 (more detail under [Ubuntu 24.04](#ubuntu-2404-supported-by-this-fork)):
+
+```sh
+sudo apt install build-essential cmake pkg-config libclang-dev libudev-dev \
+    libfontconfig1-dev libfreetype-dev libexpat1-dev libxkbcommon-dev \
+    libxkbcommon-x11-dev libwayland-dev libssl-dev libzstd-dev
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+make && sudo make install
+sudo systemctl mask power-profiles-daemon   # let asusd own the power profiles
+sudo systemctl enable --now asusd
+```
+
+Then open **System Profiler** from the menu, or run `system-profiler`.
+`cargo run --release -p profiler-gui` runs it from a checkout.
+
+## Built on
+
+- **[asusctl]** by Luke Jones, Denis Benato and the Open Gaming Collective
+  (MPL-2.0). Its daemon, `asusd`, does every privileged change: platform
+  profiles, charge limit, CPU energy preference and keyboard lighting. This
+  repository is a fork; upstream is tracked as the `upstream` remote, and
+  `asusctl` and `rog-control-center` still build and install alongside.
+- **Linux kernel drivers**, read through sysfs, hwmon and procfs:
+  `asus-nb-wmi`/`asus-wmi`, `amd-pstate-epp`, `k10temp`, `amdgpu`, `nvme`,
+  and the NVIDIA driver's runtime power management.
+- **[Slint]** for the UI (software renderer, winit X11 backend), **[zbus]** for
+  D-Bus, **[ksni]** for the tray icon, **[serde]** + **[RON]** for settings,
+  and **[dirs]**, **log** and **env_logger**.
+- **xrandr** and **xinput** for refresh rate and touchpad, plus the
+  freedesktop Notifications, StatusNotifierItem and XDG autostart specs.
+- **[Open Sans]** and **[Michroma]** fonts (SIL OFL 1.1).
+
+The design follows Armoury Crate's look; no ASUS logos or artwork are used, and
+this project is not affiliated with ASUS.
+
+## Layout
+
+- `profiler-gui/` is the app (binary `system-profiler`).
+- `sys-monitor/` is a small dependency-free sensor reader.
+- Everything else is upstream asusctl, documented below.
+
+[asusctl]: https://github.com/OpenGamingCollective/asusctl
+[Slint]: https://slint.dev
+[zbus]: https://github.com/dbus2/zbus
+[ksni]: https://github.com/iovxw/ksni
+[serde]: https://serde.rs
+[RON]: https://github.com/ron-rs/ron
+[dirs]: https://github.com/dirs-dev/dirs-rs
+[Open Sans]: https://fonts.google.com/specimen/Open+Sans
+[Michroma]: https://fonts.google.com/specimen/Michroma
 
 ---
+
+*The rest of this file is upstream asusctl's documentation; sections marked
+"Fork" are this repository's additions.*
 
 # asusctl for ASUS ROG
 

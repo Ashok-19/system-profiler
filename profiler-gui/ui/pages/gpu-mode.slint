@@ -108,7 +108,7 @@ export component GpuModePage inherits HorizontalLayout {
             HorizontalLayout {
                 padding-left: 20px;
                 Text {
-                    text: "Eco and Optimized are not available yet: during a session Xorg keeps the NVIDIA driver loaded (PRIME on-demand), so turning the GPU off safely needs a switch at boot. Ultimate needs a MUX switch, which this laptop does not have.";
+                    text: "Eco and Optimized are not offered here: in a PRIME on-demand session Xorg keeps the NVIDIA driver loaded, so the GPU cannot be switched off safely. It sleeps when idle instead, which saves nearly as much. Ultimate needs a MUX switch, which this laptop does not have.";
                     font-size: 13px * Theme.text-scale;
                     color: Theme.text-faint;
                     wrap: word-wrap;
