@@ -73,3 +73,35 @@ export global Device {
     // Live EPP of cpu0 as the kernel reports it, e.g. "balance_power".
     in property <string> cpu-epp;
 }
+
+export struct Effect {
+    // asusd's AuraModeNum: 0 Static, 1 Breathe, 2 RainbowCycle,
+    // 3 RainbowWave, 10 Pulse.
+    mode: int,
+    name: string,
+}
+
+// Keyboard backlight, owned by asusd's aura interface.
+export global Lighting {
+    in property <bool> available;
+    // Effects the keyboard supports, in display order.
+    in property <[Effect]> effects;
+    in-out property <int> mode: -1;
+    in-out property <color> colour: #a60000;
+    // 0 slow, 1 medium, 2 fast.
+    in-out property <int> speed: 1;
+    // 0 right, 1 left (Rainbow only).
+    in-out property <int> direction;
+    // 0 off .. 3 high; -1 unknown.
+    in-out property <int> brightness: -1;
+    // Sends mode, colour, speed and direction together.
+    callback apply-effect();
+    callback set-brightness(int);
+
+    in-out property <bool> on-boot;
+    in-out property <bool> on-awake;
+    in-out property <bool> on-sleep;
+    in-out property <bool> on-shutdown;
+    // Sends the four on-* flags together.
+    callback apply-power();
+}

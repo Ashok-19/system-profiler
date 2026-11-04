@@ -1,30 +1,22 @@
-//! Talks to asusd over the system bus on a worker thread.
-//!
-//! The UI never blocks on D-Bus: callbacks queue a [`Command`], and the
-//! worker re-reads the daemon state after each command and every few
-//! seconds (so changes made elsewhere, e.g. with Fn+F5, show up).
+//! asusd's platform interface: operating mode, charge limit, CPU energy
+//! preference and automatic switching.
 
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::thread;
-use std::time::Duration;
+use std::sync::mpsc::Sender;
 
 use rog_dbus::zbus_platform::PlatformProxyBlocking;
 use rog_platform::cpu::CPUEPP;
 use rog_platform::platform::PlatformProfile;
-use slint::{ComponentHandle, Model, ModelRc, VecModel, Weak};
-use zbus::proxy::CacheProperties;
+use slint::{ComponentHandle, Model, ModelRc, VecModel};
 
 use crate::{AppWindow, Device};
 
-const REFRESH: Duration = Duration::from_secs(2);
-const RECONNECT: Duration = Duration::from_secs(5);
 const CPU0_EPP: &str = "/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference";
 /// Number of UI modes (Silent, Performance, Turbo).
 const MODES: usize = 3;
 
 /// A change requested from the UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Command {
+pub enum Command {
     Mode(i32),
     ChargeLimit(u8),
     OneShotCharge,
@@ -37,7 +29,7 @@ enum Command {
 
 /// What the UI shows about asusd.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct DeviceState {
+pub struct State {
     version: Option<String>,
     /// UI mode index, see [`mode_from_profile`]; -1 if unknown.
     mode: i32,
@@ -52,8 +44,13 @@ struct DeviceState {
     cpu_epp: String,
 }
 
-impl DeviceState {
-    const fn disconnected() -> Self {
+impl State {
+    /// asusd answered (it reported its version).
+    pub const fn is_connected(&self) -> bool {
+        self.version.is_some()
+    }
+
+    pub const fn disconnected() -> Self {
         Self {
             version: None,
             mode: -1,
@@ -112,10 +109,10 @@ const fn epp_from_index(index: i32) -> Option<CPUEPP> {
     }
 }
 
-fn read_state(proxy: &PlatformProxyBlocking<'_>) -> DeviceState {
+pub fn read(proxy: &PlatformProxyBlocking<'_>) -> State {
     let mode = |p: zbus::Result<PlatformProfile>| p.map_or(-1, mode_from_profile);
     let epp = |e: zbus::Result<CPUEPP>| e.map_or(-1, epp_index);
-    DeviceState {
+    State {
         version: proxy.version().ok(),
         mode: mode(proxy.platform_profile()),
         charge_limit: proxy.charge_control_end_threshold().map_or(-1, i32::from),
@@ -130,13 +127,26 @@ fn read_state(proxy: &PlatformProxyBlocking<'_>) -> DeviceState {
             epp(proxy.profile_balanced_epp()),
             epp(proxy.profile_performance_epp()),
         ],
-        cpu_epp: std::fs::read_to_string(CPU0_EPP)
-            .map(|v| v.trim().to_owned())
-            .unwrap_or_default(),
+        cpu_epp: read_cpu_epp(),
     }
 }
 
-fn execute(proxy: &PlatformProxyBlocking<'_>, command: Command) {
+/// Re-read only what can change behind the app's back at any moment
+/// (Fn+F5, unplugging, asusctl); [`read`] covers the rest.
+pub fn refresh(proxy: &PlatformProxyBlocking<'_>, state: &mut State) {
+    state.version = proxy.version().ok();
+    state.mode = proxy.platform_profile().map_or(-1, mode_from_profile);
+    state.charge_limit = proxy.charge_control_end_threshold().map_or(-1, i32::from);
+    state.cpu_epp = read_cpu_epp();
+}
+
+fn read_cpu_epp() -> String {
+    std::fs::read_to_string(CPU0_EPP)
+        .map(|v| v.trim().to_owned())
+        .unwrap_or_default()
+}
+
+pub fn execute(proxy: &PlatformProxyBlocking<'_>, command: Command) {
     let result = match command {
         Command::Mode(mode) => match profile_from_mode(mode) {
             Some(profile) => proxy.set_platform_profile(profile),
@@ -170,109 +180,53 @@ fn execute(proxy: &PlatformProxyBlocking<'_>, command: Command) {
     }
 }
 
-fn publish(ui: &Weak<AppWindow>, state: DeviceState) -> bool {
-    ui.upgrade_in_event_loop(move |ui| {
-        let device = ui.global::<Device>();
-        device.set_daemon_ok(state.version.is_some());
-        device.set_daemon_version(state.version.unwrap_or_default().into());
-        device.set_mode(state.mode);
-        device.set_charge_limit(state.charge_limit);
-        device.set_auto_switch(state.auto_switch);
-        device.set_mode_on_ac(state.mode_on_ac);
-        device.set_mode_on_battery(state.mode_on_battery);
-        device.set_linked_epp(state.linked_epp);
-        device.set_cpu_epp(state.cpu_epp.into());
-        // Update rows in place so bound widgets are not rebuilt.
-        let mode_epp = device.get_mode_epp();
-        for (row, epp) in state.mode_epp.into_iter().enumerate() {
-            if mode_epp.row_data(row) != Some(epp) {
-                mode_epp.set_row_data(row, epp);
-            }
-        }
-    })
-    .is_ok()
-}
-
-fn run(ui: &Weak<AppWindow>, commands: &Receiver<Command>) {
-    loop {
-        // Uncached: asusd changes some properties (one-shot charge, limit
-        // restore on unplug, AC/battery switching) without announcing it.
-        let connection = zbus::blocking::Connection::system().and_then(|c| {
-            PlatformProxyBlocking::builder(&c)
-                .cache_properties(CacheProperties::No)
-                .build()
-                .map(|p| (c, p))
-        });
-        let Ok((_connection, proxy)) = connection else {
-            log::warn!("Cannot reach asusd on the system bus; retrying");
-            if !publish(ui, DeviceState::disconnected()) {
-                return;
-            }
-            thread::sleep(RECONNECT);
-            continue;
-        };
-
-        loop {
-            let state = read_state(&proxy);
-            let connected = state.version.is_some();
-            if !publish(ui, state) {
-                return;
-            }
-            if !connected {
-                thread::sleep(RECONNECT);
-                break;
-            }
-            match commands.recv_timeout(REFRESH) {
-                Ok(command) => execute(&proxy, command),
-                Err(RecvTimeoutError::Timeout) => {}
-                Err(RecvTimeoutError::Disconnected) => return,
-            }
+/// Show `state` in the Device global. Runs on the UI thread.
+pub fn apply(ui: &AppWindow, state: State) {
+    let device = ui.global::<Device>();
+    device.set_daemon_ok(state.version.is_some());
+    device.set_daemon_version(state.version.unwrap_or_default().into());
+    device.set_mode(state.mode);
+    device.set_charge_limit(state.charge_limit);
+    device.set_auto_switch(state.auto_switch);
+    device.set_mode_on_ac(state.mode_on_ac);
+    device.set_mode_on_battery(state.mode_on_battery);
+    device.set_linked_epp(state.linked_epp);
+    device.set_cpu_epp(state.cpu_epp.into());
+    // Update rows in place so bound widgets are not rebuilt.
+    let mode_epp = device.get_mode_epp();
+    for (row, epp) in state.mode_epp.into_iter().enumerate() {
+        if mode_epp.row_data(row) != Some(epp) {
+            mode_epp.set_row_data(row, epp);
         }
     }
 }
 
-/// Wire the Device callbacks and start the worker.
-pub fn spawn(ui: &AppWindow) {
-    let (tx, rx) = mpsc::channel();
+/// Route the Device callbacks to the worker.
+pub fn wire(ui: &AppWindow, tx: &Sender<super::Command>) {
     let device = ui.global::<Device>();
     device.set_mode_epp(ModelRc::new(VecModel::from(vec![-1; MODES])));
+    let send = || super::sender(tx, super::Command::Platform);
 
-    let send = |tx: &Sender<Command>| {
-        let tx = tx.clone();
-        // Fails only once the worker has exited; nothing to do then.
-        move |command| {
-            let _ = tx.send(command);
-        }
-    };
-    let s = send(&tx);
+    let s = send();
     device.on_set_mode(move |mode| s(Command::Mode(mode)));
-    let s = send(&tx);
+    let s = send();
     device.on_set_charge_limit(move |limit| {
         if let Ok(limit) = u8::try_from(limit) {
             s(Command::ChargeLimit(limit));
         }
     });
-    let s = send(&tx);
+    let s = send();
     device.on_one_shot_charge(move || s(Command::OneShotCharge));
-    let s = send(&tx);
+    let s = send();
     device.on_set_auto_switch(move |on| s(Command::AutoSwitch(on)));
-    let s = send(&tx);
+    let s = send();
     device.on_set_mode_on_ac(move |mode| s(Command::ModeOnAc(mode)));
-    let s = send(&tx);
+    let s = send();
     device.on_set_mode_on_battery(move |mode| s(Command::ModeOnBattery(mode)));
-    let s = send(&tx);
+    let s = send();
     device.on_set_linked_epp(move |on| s(Command::LinkedEpp(on)));
-    let s = send(&tx);
+    let s = send();
     device.on_set_mode_epp(move |mode, epp| s(Command::ModeEpp { mode, epp }));
-    drop(tx);
-
-    let weak = ui.as_weak();
-    let spawned = thread::Builder::new()
-        .name("asusd".to_owned())
-        .spawn(move || run(&weak, &rx));
-    if let Err(e) = spawned {
-        log::error!("Could not start the asusd thread: {e}");
-    }
 }
 
 #[cfg(test)]
