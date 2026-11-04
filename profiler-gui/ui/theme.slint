@@ -24,6 +24,11 @@ export global Prefs {
     in-out property <int> hot-cpu;
     // Display page: slowest refresh rate on battery, fastest on AC.
     in-out property <bool> battery-60hz;
+    // Close to the tray; start hidden when launched with the session.
+    in-out property <bool> keep-in-tray: true;
+    in-out property <bool> start-minimized;
+    // Whether a tray icon could be registered.
+    in property <bool> tray-available;
     // Mirrors the XDG autostart entry; changed through set-autostart.
     in property <bool> autostart;
     callback set-autostart(bool);

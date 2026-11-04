@@ -248,7 +248,12 @@ pub fn spawn(app: &AppWindow, mut monitor: Monitor, shared: &Arc<Shared>) {
 
                 let view = formatter.live(&snapshot);
                 if ui
-                    .upgrade_in_event_loop(move |ui| apply(&ui, &view))
+                    // Nothing to update while hidden in the tray.
+                    .upgrade_in_event_loop(move |ui| {
+                        if ui.window().is_visible() {
+                            apply(&ui, &view);
+                        }
+                    })
                     .is_err()
                 {
                     break;

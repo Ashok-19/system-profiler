@@ -38,6 +38,33 @@ export component SettingsPage inherits HorizontalLayout {
                     toggled(on) => { Prefs.set-autostart(on); }
                 }
             }
+
+            SettingRow {
+                label: "Start minimized to the tray";
+                sub: "When starting with the desktop session";
+                dimmed: !Prefs.tray-available || !Prefs.autostart;
+                Switch {
+                    label: "Start minimized to the tray";
+                    checked: Prefs.start-minimized;
+                    enabled: Prefs.tray-available;
+                    toggled(on) => { Prefs.start-minimized = on; Prefs.save(); }
+                }
+            }
+
+            SettingRow {
+                shaded: true;
+                label: "Keep running in the tray when the window is closed";
+                sub: Prefs.tray-available
+                    ? "Notifications, profiles and refresh-rate switching keep working"
+                    : "No system tray found on this desktop";
+                dimmed: !Prefs.tray-available;
+                Switch {
+                    label: "Keep running in the tray when closed";
+                    checked: Prefs.keep-in-tray;
+                    enabled: Prefs.tray-available;
+                    toggled(on) => { Prefs.keep-in-tray = on; Prefs.save(); }
+                }
+            }
         }
 
         SettingsSection {
