@@ -46,6 +46,10 @@ pub struct BatteryStats {
     /// `charge_control_end_threshold`, the charge limit.
     pub charge_limit_percent: Option<u8>,
     pub voltage_v: Option<f32>,
+    /// Pack model, e.g. `A32-K55`.
+    pub model: Option<String>,
+    /// Chemistry, e.g. `Li-ion`.
+    pub technology: Option<String>,
 }
 
 impl BatteryStats {
@@ -111,6 +115,9 @@ fn read_battery(dir: &Path) -> Option<BatteryStats> {
         charge_limit_percent: read("charge_control_end_threshold")
             .and_then(|v| u8::try_from(v).ok()),
         voltage_v,
+        model: sysfs::read_trimmed(&dir.join("model_name")).filter(|m| !m.is_empty()),
+        technology: sysfs::read_trimmed(&dir.join("technology"))
+            .filter(|t| !t.is_empty() && t != "Unknown"),
     })
 }
 
@@ -158,6 +165,8 @@ mod tests {
         fx.write(&format!("{b}/charge_full_design"), "5675000\n");
         fx.write(&format!("{b}/cycle_count"), "0\n");
         fx.write(&format!("{b}/charge_control_end_threshold"), "80\n");
+        fx.write(&format!("{b}/model_name"), "A32-K55\n");
+        fx.write(&format!("{b}/technology"), "Li-ion\n");
         fx.write("sys/class/power_supply/ACAD/type", "Mains\n");
         fx.write("sys/class/power_supply/ACAD/online", "0\n");
 
@@ -168,6 +177,8 @@ mod tests {
         assert_eq!(bat.status, ChargeStatus::Discharging);
         assert_eq!(bat.capacity_percent, Some(80));
         assert_eq!(bat.charge_limit_percent, Some(80));
+        assert_eq!(bat.model.as_deref(), Some("A32-K55"));
+        assert_eq!(bat.technology.as_deref(), Some("Li-ion"));
         assert!(close(bat.power_w, 15.0));
         assert!(close(bat.energy_now_wh, 3.0 * 15.86));
         assert!(close(bat.health_percent(), 4066.0 / 5675.0 * 100.0));
