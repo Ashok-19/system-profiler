@@ -154,6 +154,8 @@ export global Screen {
     in-out property <bool> busy;
     callback refresh();
     callback set-rate(int);
+    // Fastest (true) or slowest (false) rate, whatever the panel offers.
+    callback set-fastest(bool);
 
     in property <bool> has-touchpad;
     in property <string> touchpad-name;
@@ -178,4 +180,93 @@ export global Graphics {
     in property <bool> has-mux;
     in property <bool> has-powerd;
     callback refresh();
+}
+
+// Scenario profile as the UI edits it. Values match config::Profile:
+// mode -1 keep / 0..2; charge-limit 0 keep; refresh -1 keep / 0 fastest /
+// 1 slowest; keyboard -1 keep / 0..3. `apps` is comma separated.
+export struct ProfileData {
+    name: string,
+    enabled: bool,
+    apps: string,
+    mode: int,
+    charge-limit: int,
+    refresh: int,
+    keyboard: int,
+}
+
+export global Profiles {
+    in-out property <[ProfileData]> list;
+    // Switch automatically while a profile's apps run.
+    in-out property <bool> auto;
+    // Profile applied automatically right now; -1 none.
+    out property <int> active: -1;
+    // Rust appends a default profile / removes one, then saves.
+    callback add();
+    callback remove(int);
+
+    // What was in effect before an automatic profile, to put back.
+    property <int> saved-mode: -1;
+    property <int> saved-limit: -1;
+    property <int> saved-rate: -1;
+    property <int> saved-brightness: -1;
+
+    public function apply(index: int) {
+        if index < 0 || index >= self.list.length {
+            return;
+        }
+        if self.list[index].mode >= 0 && Device.daemon-ok {
+            Device.mode = self.list[index].mode;
+            Device.set-mode(self.list[index].mode);
+        }
+        if self.list[index].charge-limit > 0 && Device.charge-limit > 0 {
+            Device.charge-limit = self.list[index].charge-limit;
+            Device.set-charge-limit(self.list[index].charge-limit);
+        }
+        if self.list[index].refresh >= 0 {
+            Screen.set-fastest(self.list[index].refresh == 0);
+        }
+        if self.list[index].keyboard >= 0 && Lighting.available {
+            Lighting.brightness = self.list[index].keyboard;
+            Lighting.set-brightness(self.list[index].keyboard);
+        }
+    }
+
+    // A profile's app started. Remember the current state only when no
+    // other automatic profile is active, so ending restores the original.
+    public function begin-auto(index: int) {
+        if self.active < 0 {
+            self.saved-mode = Device.mode;
+            self.saved-limit = Device.charge-limit;
+            self.saved-rate = Screen.current;
+            self.saved-brightness = Lighting.brightness;
+        }
+        self.active = index;
+        self.apply(index);
+    }
+
+    // Its apps all quit: put back what the profile changed.
+    public function end-auto() {
+        if self.active < 0 {
+            return;
+        }
+        if self.active < self.list.length {
+            if self.list[self.active].mode >= 0 && self.saved-mode >= 0 {
+                Device.mode = self.saved-mode;
+                Device.set-mode(self.saved-mode);
+            }
+            if self.list[self.active].charge-limit > 0 && self.saved-limit > 0 {
+                Device.charge-limit = self.saved-limit;
+                Device.set-charge-limit(self.saved-limit);
+            }
+            if self.list[self.active].refresh >= 0 && self.saved-rate >= 0 {
+                Screen.set-rate(self.saved-rate);
+            }
+            if self.list[self.active].keyboard >= 0 && self.saved-brightness >= 0 {
+                Lighting.brightness = self.saved-brightness;
+                Lighting.set-brightness(self.saved-brightness);
+            }
+        }
+        self.active = -1;
+    }
 }

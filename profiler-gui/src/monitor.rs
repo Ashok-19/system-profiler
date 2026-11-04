@@ -1,8 +1,9 @@
 //! Background sampling of hardware sensors.
 
+use std::path::Path;
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
 use sys_monitor::Monitor;
@@ -11,7 +12,7 @@ use crate::alerts::{Alerts, Reading, Wanted};
 use crate::shared::Shared;
 use crate::view::{ChartView, FactView, Formatter, LiveView, PanelView, SensorView};
 use crate::{AppWindow, Chart, Fact, Live, Metric, MonitorPanel, Sensor, SensorRow};
-use crate::{notify, screen};
+use crate::{Profiles, notify, profiles, screen};
 
 fn metrics(panel: &PanelView) -> Vec<Metric> {
     panel
@@ -155,6 +156,28 @@ fn apply(ui: &AppWindow, view: &LiveView) {
 /// Sample sensors on a background thread and push them to the UI until the
 /// window is gone. `monitor` should already have taken one sample so the
 /// first update has usage percentages.
+/// How often automatic profiles look for their apps.
+const PROCESS_SCAN: Duration = Duration::from_secs(5);
+
+/// Apply (or end) an automatic profile; runs on the UI thread.
+fn switch_profile(ui: &AppWindow, profile: Option<usize>) {
+    let p = ui.global::<Profiles>();
+    let Some(index) = profile else {
+        p.invoke_end_auto();
+        notify::show("profile", "Profile off", "Your previous settings are back.");
+        return;
+    };
+    let (Ok(ui_index), Some(data)) = (i32::try_from(index), p.get_list().row_data(index)) else {
+        return;
+    };
+    p.invoke_begin_auto(ui_index);
+    notify::show(
+        "profile",
+        &format!("{} profile on", data.name),
+        &profiles::summary(&data),
+    );
+}
+
 pub fn spawn(app: &AppWindow, mut monitor: Monitor, shared: &Arc<Shared>) {
     let chosen = Arc::clone(shared);
     app.global::<Live>().on_set_history_minutes(move |minutes| {
@@ -169,6 +192,8 @@ pub fn spawn(app: &AppWindow, mut monitor: Monitor, shared: &Arc<Shared>) {
             let mut formatter = Formatter::default();
             let mut alerts = Alerts::default();
             let mut last_ac = None;
+            let mut auto_profile: Option<usize> = None;
+            let mut last_scan: Option<Instant> = None;
             loop {
                 let interval = shared.interval_s().max(1);
                 thread::sleep(Duration::from_secs(u64::from(interval)));
@@ -202,6 +227,23 @@ pub fn spawn(app: &AppWindow, mut monitor: Monitor, shared: &Arc<Shared>) {
                 }
                 if reading.on_ac.is_some() {
                     last_ac = reading.on_ac;
+                }
+
+                // Scenario profiles follow their apps. Scanning every
+                // process is the costliest part of a cycle, so it runs at
+                // most every few seconds; app launches are not that quick.
+                let due = last_scan.is_none_or(|t| t.elapsed() >= PROCESS_SCAN);
+                let wanted_profile = if !shared.auto_profiles() {
+                    None
+                } else if due {
+                    last_scan = Some(Instant::now());
+                    profiles::matching(&shared.triggers(), &profiles::running(Path::new("/")))
+                } else {
+                    auto_profile
+                };
+                if wanted_profile != auto_profile {
+                    auto_profile = wanted_profile;
+                    let _ = ui.upgrade_in_event_loop(move |ui| switch_profile(&ui, wanted_profile));
                 }
 
                 let view = formatter.live(&snapshot);

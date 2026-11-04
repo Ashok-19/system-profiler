@@ -12,6 +12,7 @@ mod machine;
 mod monitor;
 mod notify;
 mod prefs;
+mod profiles;
 mod screen;
 mod shared;
 mod view;
@@ -70,6 +71,9 @@ fn main() -> Result<(), slint::PlatformError> {
     monitor::spawn(&ui, monitor, &shared);
     daemon::spawn(&ui, &shared);
     screen::wire(&ui);
+    profiles::wire(&ui);
+    // Know the current refresh rate, so automatic profiles can restore it.
+    ui.global::<Screen>().invoke_refresh();
     gpu_mode::wire(&ui);
 
     ui.run()

@@ -744,3 +744,49 @@ export component BracketPanel inherits Rectangle {
         @children
     }
 }
+
+// Single-line text box in the outlined control style.
+export component TextField inherits Rectangle {
+    in-out property <string> text <=> input.text;
+    in property <string> placeholder;
+    in property <string> label;
+    callback edited(string);
+
+    height: 36px;
+    background: Theme.control-bg;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : touch.has-hover ? Theme.text-strong : Theme.control-border;
+    border-radius: Theme.radius;
+    accessible-role: text-input;
+    accessible-label: root.label;
+    accessible-value: root.text;
+    accessible-placeholder-text: root.placeholder;
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.text;
+        clicked => { input.focus(); }
+    }
+
+    if root.text == "": Text {
+        x: 10px;
+        width: parent.width - 20px;
+        height: parent.height;
+        text: root.placeholder;
+        font-size: 14px * Theme.text-scale;
+        color: Theme.text-faint;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    input := TextInput {
+        x: 10px;
+        width: parent.width - 20px;
+        height: parent.height;
+        font-size: 14px * Theme.text-scale;
+        color: Theme.text;
+        selection-background-color: Theme.accent.with-alpha(0.4);
+        vertical-alignment: center;
+        single-line: true;
+        edited => { root.edited(self.text); }
+    }
+}

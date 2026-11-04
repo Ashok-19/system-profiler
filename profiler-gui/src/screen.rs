@@ -73,6 +73,9 @@ pub fn wire(ui: &AppWindow) {
     });
 
     let weak = ui.as_weak();
+    s.on_set_fastest(move |fastest| in_background(&weak, move || follow_power(fastest)));
+
+    let weak = ui.as_weak();
     s.on_set_touchpad(move |on| {
         in_background(&weak, move || {
             if let Some(t) = display::query_touchpad() {
@@ -82,8 +85,8 @@ pub fn wire(ui: &AppWindow) {
     });
 }
 
-/// Switch the panel to its slowest rate on battery and back to its
-/// fastest on AC. Called from a worker thread.
+/// Switch the panel to its fastest rate (`true`, e.g. on AC) or its
+/// slowest (`false`, e.g. on battery). Blocks; call from a worker thread.
 pub fn follow_power(on_ac: bool) {
     let Some(panel) = display::query_panel() else {
         return;
